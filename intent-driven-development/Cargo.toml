@@ -1,0 +1,20 @@
+[package]
+name = "intent-driven-development"
+version = "0.2.0"
+edition = "2021"
+rust-version = "1.74"
+description = "Rust-native CLI for intent-driven repository unification, GitHub agent orchestration, env/secrets contract mapping, manifesting, and gated task generation."
+license = "MIT"
+readme = "README.md"
+keywords = ["ai", "github", "merge", "automation", "rust"]
+categories = ["command-line-utilities", "development-tools"]
+
+[lib]
+name = "intent_driven_development"
+path = "src/lib.rs"
+
+[[bin]]
+name = "idd"
+path = "src/main.rs"
+
+[dependencies]
