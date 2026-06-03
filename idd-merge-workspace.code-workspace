@@ -1,0 +1,24 @@
+{
+    "folders": [
+        {
+            "path": "intent-driven-development"
+        },
+        {
+            "path": "intent-driven-template"
+        },
+        {
+            "path": "openspec-tui-main"
+        }
+    ],
+    "settings": {
+        "files.exclude": {
+            "**/target": true,
+            "**/node_modules": true,
+            "**/dist": true
+        },
+        "search.exclude": {
+            "**/target": true,
+            "**/node_modules": true
+        }
+    }
+}
