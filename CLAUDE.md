@@ -13,6 +13,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 |------|--------|--------|--------|
 | 2026-06-04 | Initial setup | All (4 agents, 6 skills) | - |
 | 2026-06-04 | Add `lifecycle-porter` agent + `lifecycle-porting` skill; generalize `drift-check.sh` (layout-agnostic, core-crate dep check); add epic/slice-type layer to planner+orchestrator; re-scope Rust-native invariant to the core crate | agents, skills, CLAUDE.md | Research found the harness was aimed at the current 2-crate snapshot; retargeted it to *build rusty-idd* (workspace restructure + Node→Rust lifecycle port) |
+| 2026-06-04 | Execute epic slices 2–3: `intent-driven-development`→`crates/core`, `openspec-tui-main`→`crates/tui`; relocate+upgrade CI to root `.github/` (workspace-aware, drift gate, fmt/clippy non-blocking); fix tui CWD-race flake; refresh layout docs | repo layout, CI, CLAUDE.md, docs/rusty-idd | Continue the rusty-idd unification; the drift gate's retarget proved out (root lock 234 pkgs, core still zero-dep) |
 
 ## Session start protocol (mandatory)
 
@@ -22,44 +23,46 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
    rtk git worktree add ../idd-<task-slug> -b <task-slug> origin/main
    ```
    Use the `EnterWorktree` tool when available; otherwise the command above. One vertical slice per worktree, per `AGENTS.md` rule 4. Remove the worktree when the slice is merged.
-3. Read `AGENTS.md` (operating rules) and, for `idd` work, `intent-driven-development/README.md` before changing control-plane behavior.
+3. Read `AGENTS.md` (operating rules) and, for `idd`/lifecycle work, `crates/core/README.md` and `docs/rusty-idd/` before changing control-plane behavior.
 
 ## Repository shape
 
-This is **not** a Cargo workspace. It is an integration root bundling three independent projects (see `idd-merge-workspace.code-workspace`). Each Rust crate is built and tested **from its own directory** — there is no root `Cargo.toml`.
+This **is** a Cargo workspace now (the rusty-idd unification, in progress — see `docs/rusty-idd/`). The root `Cargo.toml` is a virtual manifest (`resolver = "3"`) with members under `crates/`. Mixed editions coexist per-crate.
 
-| Folder | Kind | What it is |
-|--------|------|-----------|
-| `intent-driven-development/` | Rust crate (`idd`) | The core CLI. Generates a repo-native AI merge **control plane** (markdown + JSON contracts, CI gates, GitHub agent templates). It is **not** an AI agent — it produces artifacts agents execute through issues/PRs. |
-| `openspec-tui-main/` | Rust crate (`openspec-tui`) | A ratatui/crossterm TUI that browses OpenSpec changes and drives an external agent CLI (e.g. `claude`) to implement `tasks.md` task-by-task, with stall detection and dependency-ordered batch runs. |
-| `intent-driven-template/` | **Not code** — template assets | OpenSpec scaffolding: `.agents/skills/`, `.opencode/` commands+skills, `openspec/` schemas/templates (markdown/YAML/JSON). No build step. |
+| Path | Kind | What it is |
+|------|------|-----------|
+| `crates/core/` | Rust crate, edition 2021 (`idd` bin), **zero-dep / std-only** | The core CLI (was `intent-driven-development`). Generates the AI-merge **control plane** (markdown + JSON contracts, CI gates, agent templates). Not an AI agent — it produces artifacts agents execute. |
+| `crates/tui/` | Rust crate, edition 2024 (`openspec-tui`) | ratatui/crossterm TUI (was `openspec-tui-main`) that browses OpenSpec changes and drives an external agent CLI to implement `tasks.md`, with stall detection and dependency-ordered batch runs. |
+| `crates/spec/` | (planned, slice 6) | The OpenSpec lifecycle engine ported to Rust — see `docs/rusty-idd/spec-engine-design.md`. |
+| `intent-driven-template/` | **Not code** — template assets | OpenSpec scaffolding: `.agents/`, `.opencode/`, `openspec/` schema/templates. The lifecycle being ported into `crates/spec`. |
 
-### `intent-driven-development` architecture
+### `crates/core` (`idd`) architecture
 
-CLI dispatch lives in `src/cli.rs` (`run(args)` matches subcommands: `init`, `scan`, `plan`, `task`, `validate`, `manifest`, `github`). Flags are parsed by a hand-rolled `parse_flags` (`--k v` and `--k=v`) — there is no `clap`. The pipeline is `scanner` (walks a repo → `RepoInventory` in `model.rs`, detecting languages, package managers, entrypoints, workflows, and secret refs) → `planner` (renders inventories + merge plan + tasks) → `templates` (static `&str` artifact bodies) → `validation` (severity-graded findings; **critical findings make `idd validate` exit non-zero**) → `manifest` (deterministic `.idd/MANIFEST.tsv` audit baseline). `env_contract.rs` detects env/secret keys across many providers. All file writes go through `fs_utils::write_string_preserving_existing` (**backup-on-overwrite** — never clobber prior artifacts).
+CLI dispatch lives in `crates/core/src/cli.rs` (`run(args)` matches subcommands: `init`, `scan`, `plan`, `task`, `validate`, `manifest`, `github`). Flags are parsed by a hand-rolled `parse_flags` (`--k v` and `--k=v`) — no `clap` here (the future unified `crates/cli` will use clap). The pipeline is `scanner` (walks a repo → `RepoInventory` in `model.rs`) → `planner` (renders inventories + merge plan + tasks) → `templates` (static `&str` bodies) → `validation` (severity-graded; **critical findings make `idd validate` exit non-zero**) → `manifest` (deterministic `.idd/MANIFEST.tsv`). `env_contract.rs` detects env/secret keys. All file writes go through `fs_utils::write_string_preserving_existing` (**backup-on-overwrite**).
 
-### `openspec-tui` architecture
+### `crates/tui` (`openspec-tui`) architecture
 
-`main.rs` boots the terminal; `app.rs` holds the screen state machine and key handling; `ui.rs` renders; `data.rs` parses OpenSpec `tasks.md` progress; `config.rs` holds `TuiConfig` (command/prompt templates, persisted to `openspec/tui-config.yaml`); `runner.rs` spawns the external agent in a worker thread, streams `ImplUpdate` messages over an mpsc channel, kills children via a shared `Arc<Mutex<Option<Child>>>` + `AtomicBool` cancel flag, and stalls after `STALL_THRESHOLD` (3) no-progress runs. Most logic is covered by inline `#[cfg(test)]` modules — there is no separate `tests/` dir.
+`main.rs` boots the terminal; `app.rs` holds the screen state machine; `ui.rs` renders; `data.rs` parses `tasks.md` progress; `config.rs` holds `TuiConfig` (persisted to `openspec/tui-config.yaml`); `runner.rs` spawns the external agent in a worker thread, streams `ImplUpdate` over an mpsc channel, kills children via a shared `Arc<Mutex<Option<Child>>>` + `AtomicBool` cancel flag, and stalls after `STALL_THRESHOLD` (3) no-progress runs. Logic is covered by inline `#[cfg(test)]` modules. (Tests that mutate CWD via `set_current_dir` are serialized by a `CWD_GUARD` mutex in `data.rs` — process-global CWD races otherwise.)
 
 ## Build, test, lint
 
-Always run from the relevant crate directory. Mirror CI exactly (`intent-driven-development/.github/workflows/ci.yml`):
+Run at the **workspace root**. CI lives at `.github/workflows/ci.yml` (workspace-aware):
 
 ```bash
-# from intent-driven-development/  OR  openspec-tui-main/
-rtk cargo build
-rtk cargo test                      # all tests
-rtk cargo test <name_substring>     # a single test by name
-rtk cargo test --all --locked       # CI mode — fails on Cargo.lock drift
-rtk cargo fmt --all -- --check      # CI fails on unformatted code
-rtk cargo clippy --all-targets --all-features -- -D warnings   # CI treats warnings as errors
+rtk cargo build --workspace
+rtk cargo test --workspace                  # all tests
+rtk cargo test -p openspec-tui <name>       # a single test in one crate
+rtk cargo test --workspace --locked         # CI mode — fails on Cargo.lock drift
+rtk cargo fmt --all -- --check              # NON-blocking in CI until the fmt+clippy cleanup slice
+rtk cargo clippy --workspace --all-targets --all-features -- -D warnings   # NON-blocking until cleanup
 ```
 
+> CI **blocking** gates today: the Rust-native drift gate + `build --workspace` + `test --workspace`. fmt/clippy are non-blocking reporters until the dedicated cleanup slice (the two crates came from separate upstreams and aren't yet lint-clean together — ~1700 lines). See `docs/rusty-idd/slice-sequence.md`.
+
 Notes:
-- `intent-driven-development` is edition 2021 (MSRV 1.74); `openspec-tui-main` is **edition 2024** — keep that in mind when writing syntax (e.g. `let ... && let ...` chains are used in `runner.rs`).
-- `idd` end-to-end smoke: `cargo run --bin idd -- help`, or run the real flow per `intent-driven-development/README.md` ("Primary workflow").
-- `openspec-tui` must be run from a directory containing an `openspec/` folder; `nix develop` (flake) is the documented dev shell.
+- `crates/core` is edition 2021 (MSRV 1.74); `crates/tui` is **edition 2024** (e.g. `let ... && let ...` chains in `runner.rs`). The workspace sets `resolver = "3"` to carry both.
+- `idd` end-to-end smoke: `cargo run -p intent-driven-development --bin idd -- help`, or the real flow per `crates/core/README.md` ("Primary workflow").
+- `openspec-tui` (`cargo run -p openspec-tui`) must run from a directory containing an `openspec/` folder; `crates/tui/flake.nix` is the documented nix dev shell.
 
 ## Rust-native invariant (critical — verify, don't assume)
 

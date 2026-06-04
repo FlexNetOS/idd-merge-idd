@@ -840,6 +840,13 @@ mod tests {
 
     // --- list_archived_changes tests ---
 
+    /// Serializes tests that mutate the process-global current directory.
+    /// `set_current_dir` is process-wide, so without this guard concurrent
+    /// CWD-changing tests race (one test's `remove_dir_all` can invalidate
+    /// another's CWD, making `current_dir()` fail with NotFound). Poison is
+    /// tolerated so a single failing test does not cascade into the rest.
+    static CWD_GUARD: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
     /// Helper: create a temp archive directory structure, run a closure, then clean up.
     fn with_archived_changes<F>(test_name: &str, dirs: &[(&str, Option<&str>)], f: F)
     where
@@ -858,7 +865,9 @@ mod tests {
             }
         }
 
-        // Change to the temp base dir so list_archived_changes() finds the archive
+        // Change to the temp base dir so list_archived_changes() finds the archive.
+        // Hold the CWD guard for the whole critical section (until restore + cleanup).
+        let _cwd = CWD_GUARD.lock().unwrap_or_else(|e| e.into_inner());
         let original_dir = std::env::current_dir().unwrap();
         std::env::set_current_dir(&base).unwrap();
         f(&base);
@@ -903,6 +912,7 @@ mod tests {
         fs::create_dir_all(&base).unwrap();
         // No openspec/changes/archive/ directory
 
+        let _cwd = CWD_GUARD.lock().unwrap_or_else(|e| e.into_inner());
         let original_dir = std::env::current_dir().unwrap();
         std::env::set_current_dir(&base).unwrap();
         let result = list_archived_changes().unwrap();

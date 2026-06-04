@@ -21,7 +21,7 @@ rtk git fetch --all && rtk git status -sb
 ### 2. Scan each repo/crate
 `idd scan` emits both human-readable and machine-readable inventories. Run it for each side of the merge:
 ```bash
-# from intent-driven-development/ (the idd binary)
+# from the workspace root (the idd binary lives in crates/core)
 rtk cargo run --bin idd -- scan --repo <path> --format md   --out <ws>/01_<name>_inventory.md
 rtk cargo run --bin idd -- scan --repo <path> --format json --out <ws>/01_<name>_inventory.json
 ```
