@@ -1,32 +1,35 @@
 ---
 name: merge-orchestrator
-description: "Coordinates the merge-dev agent team for idd-merge-idd: Analyze → Plan → Implement → Verify → assemble PR evidence, producing one reviewable, parity-backed, Rust-native vertical slice. ALWAYS use for merge/migration/unification dev operations in this repo — merging repos, planning a slice, implementing a migration, QA-ing a merge, checking Rust-native drift, or assembling merge-PR evidence. Also use for follow-up work: re-run, run again, update, revise, refine the plan, redo only the implementation/QA of a slice, improve the previous result, or 'based on the previous run'. Simple one-off questions may be answered directly without the team."
+description: "Coordinates the merge-dev agent team for idd-merge-idd: Analyze → Plan → Implement → Verify → assemble PR evidence, producing reviewable, Rust-native slices. ALWAYS use for merge/migration/unification dev operations in this repo — building rusty-idd, the Cargo-workspace restructure, porting the OpenSpec lifecycle to Rust, merging repos, sequencing the unification epic, planning a slice, implementing a migration, QA-ing a merge, checking Rust-native drift, or assembling merge-PR evidence. Also use for follow-up work: re-run, run again, update, revise, refine the plan/epic, redo only the implementation/QA/lifecycle-port of a slice, improve the previous result, or 'based on the previous run'. Simple one-off questions may be answered directly without the team."
 ---
 
 # Merge Orchestrator
 
-Coordinates a four-member agent team to run one **merge dev operation** end to end and deliver a single PR-ready vertical slice. Governing rules live in `AGENTS.md` (merge discipline) and `CLAUDE.md` (Rust-native invariant + worktree protocol).
+Coordinates a five-member agent team to run a **merge dev operation** end to end. It handles both ongoing maintenance (one PR-ready slice) and the larger **rusty-idd unification epic** (a sequenced restructure executed slice by slice). Governing rules live in `AGENTS.md` (merge discipline) and `CLAUDE.md` (Rust-native invariant + worktree protocol).
+
+The mission is to build **rusty-idd**: unify the three directors (`intent-driven-development`, `openspec-tui-main`, the OpenSpec lifecycle from `intent-driven-template`) into one Rust-native Cargo workspace. Two directors are already Rust and fold in as crates; the lifecycle engine is a constructive Node→Rust port owned by `lifecycle-porter`.
 
 ## Execution Mode: Hybrid (agent team, with a Producer–Reviewer loop)
 
 | Phase | Mode | Reason |
 |-------|------|--------|
-| Phase 2 Analyze | Agent team | Analysts share discoveries / flag conflicts in real time |
-| Phase 3 Plan | Agent team | Planner pulls directly from analysts, negotiates feasibility |
+| Phase 2 Analyze + extract lifecycle | Agent team | Analyst + lifecycle-porter gather facts and the spec contract in parallel |
+| Phase 3 Sequence epic + plan slice | Agent team | Planner sequences the restructure, then details the next slice with porter/implementer input |
 | Phase 4 Implement ↔ Verify | Agent team (Producer–Reviewer) | Real-time fix loop between implementer and QA minimizes rework |
 | Phase 5 PR assembly | Leader (direct) | Single deterministic packaging step; no team needed |
 
-One team spans phases 2–4 (the members are needed throughout); the leader handles phase 5 after the team disbands.
+One team spans phases 2–4. **For the unification epic, Phases 3–5 loop once per slice** (the epic sequence lives in `_workspace/02_planner_epic.md`); the leader carries the sequence across slices and the team persists between them. For a single maintenance change, the loop runs once.
 
 ## Agent Composition
 | Member | Agent type (`subagent_type`) | Role | Skill | Output |
 |--------|------------------------------|------|-------|--------|
 | merge-analyst | `merge-analyst` | Inventory + feature matrix + env/secret contract + Rust-native baseline | `repo-inventory` | `_workspace/01_analyst_*.md` |
-| merge-planner | `merge-planner` | Select ONE slice; migration intent, parity tests, gates, rollback | `vertical-slice-planning` | `_workspace/02_planner_slice.md` |
+| lifecycle-porter | `lifecycle-porter` | Extract the OpenSpec lifecycle contract; design the Rust `crates/spec` engine + delta-merge | `lifecycle-porting` | `_workspace/01_lifecycle_contract.md`, `05_lifecycle_design.md` |
+| merge-planner | `merge-planner` | Sequence the epic; plan the next slice (type + gate + rollback) | `vertical-slice-planning` | `_workspace/02_planner_epic.md`, `02_planner_slice.md` |
 | rust-implementer | `rust-implementer` | Implement the slice Rust-native, deprecate-before-delete | `rust-native-implementation` | code + `_workspace/03_implementer_changes.md` |
-| merge-qa | `merge-qa` | Cross-boundary verification (drift/parity/contract/CI/secret), incremental | `merge-verification` | `_workspace/04_qa_report.md` |
+| merge-qa | `merge-qa` | Cross-boundary verification (drift/gate/contract/CI/secret), incremental | `merge-verification` | `_workspace/04_qa_report.md` |
 
-All Agent/TeamCreate calls use `model: "opus"`.
+All Agent/TeamCreate calls use `model: "opus"`. For a pure maintenance run with no lifecycle work, `lifecycle-porter` may be omitted (4-member team); include it whenever the slice touches the spec engine.
 
 ## Workflow
 
@@ -43,16 +46,19 @@ All Agent/TeamCreate calls use `model: "opus"`.
 3. Create `_workspace/` and save the intent + scope to `_workspace/00_input/`.
 
 ### Phase 2: Team Assembly + Analyze
-1. `TeamCreate(team_name: "merge-dev-team", members: [merge-analyst, merge-planner, rust-implementer, merge-qa])`, each `model: "opus"` with a prompt pointing to its agent definition and skill.
-2. `TaskCreate` the slice's tasks with dependencies, ~5 per member:
-   - analyst: scan repos, build feature matrix, map env/secret contract, record Rust-native baseline;
-   - planner: select slice, write slice spec, emit idd task (`depends_on` analyst tasks);
-   - implementer: implement slice, build (`depends_on` planner);
+1. `TeamCreate(team_name: "merge-dev-team", members: [merge-analyst, lifecycle-porter, merge-planner, rust-implementer, merge-qa])`, each `model: "opus"` with a prompt pointing to its agent definition and skill. (Omit `lifecycle-porter` for a maintenance run that doesn't touch the spec engine.)
+2. `TaskCreate` the tasks with dependencies, ~5 per member:
+   - analyst: scan the three directors, feature matrix, env/secret contract, Rust-native baseline;
+   - lifecycle-porter: extract `01_lifecycle_contract.md`, design `crates/spec` in `05_lifecycle_design.md` (`depends_on` nothing — runs parallel to analyst);
+   - planner: sequence the epic, plan the next slice (`depends_on` analyst + porter);
+   - implementer: implement the slice, build (`depends_on` planner);
    - qa: verify each module incrementally (`depends_on` implementer, reopenable).
-3. Analysts work first; on completion they SendMessage the planner with artifact paths and alert QA if the **baseline already shows drift**.
+3. Analyst and lifecycle-porter run first in parallel; on completion they SendMessage the planner with artifact paths and alert QA if the **baseline already shows drift**.
 
-### Phase 3: Plan
-Planner reads `_workspace/01_analyst_*.md`, selects ONE slice, writes `02_planner_slice.md`, and SendMessages the slice path to the implementer plus the parity tests/gates to QA (so pass criteria are agreed up front). If the only viable slice violates the Rust-native invariant, planner escalates to the leader to re-scope.
+### Phase 3: Sequence the Epic, then Plan the Slice
+1. If the mission is the rusty-idd restructure, planner first writes `_workspace/02_planner_epic.md` — the ordered slices (workspace skeleton → fold in existing crates → port lifecycle → integrate), each tagged with its type (structural / lifecycle-port / migration) and correctness gate.
+2. Planner then selects the **next** slice, writes `02_planner_slice.md` (with its slice type), and SendMessages the slice to the implementer plus the gate to QA so pass criteria are agreed up front. For a lifecycle-port slice the gate is the porter's golden fixtures, not parity.
+3. If the next slice violates the Rust-native invariant **at the core-crate scope** (a foreign file, or a dep on the core crate — not on spec/runner/tui), planner escalates to the leader to re-scope.
 
 ### Phase 4: Implement ↔ Verify (Producer–Reviewer loop)
 1. Implementer builds the slice additively (deprecate-before-delete), and on each completed module SendMessages QA "ready" with the change-log path.
@@ -65,20 +71,22 @@ Planner reads `_workspace/01_analyst_*.md`, selects ONE slice, writes `02_planne
 3. Use the `pr-evidence-bundle` skill to gather the AGENTS.md-required evidence and prepare the worktree→branch→commit→PR steps.
 4. **Do not open/merge a PR without explicit user go-ahead** — surface the assembled bundle and let the user decide.
 5. Report a summary: slice shipped, evidence status, drift verdict, open items.
+6. **Epic advance:** if `02_planner_epic.md` has remaining slices, update it (mark this slice done), keep the team, and loop back to Phase 3 for the next slice. Otherwise the epic is complete.
 
 ## Data Flow
 ```
 [Leader] Phase1 sync+intent → _workspace/00_input/
-   │ TeamCreate(merge-dev-team) + TaskCreate
+   │ TeamCreate(merge-dev-team, 5) + TaskCreate
    ▼
-[merge-analyst] 01_analyst_*  ──SendMessage(paths)──► [merge-planner] 02_planner_slice
-                   │ (baseline drift alert)                    │ (slice + gates)
-                   └────────────► [merge-qa] ◄──────────── parity tests/gates
-                                     ▲   │
-[rust-implementer] code + 03_changes ┘   ▼ fix requests (file:line)
-        ▲───────── Producer–Reviewer loop (≤3) ──────► 04_qa_report (PR-ready?)
-   │ TeamDelete
-   ▼
+[merge-analyst]    01_analyst_*  ─┐
+[lifecycle-porter] 01_contract +  ├─SendMessage(paths)─► [merge-planner] 02_epic + 02_slice
+                   05_design      ┘  (baseline drift alert)        │ (slice type + gate)
+                                          └────────► [merge-qa] ◄── gate (parity | build | fixtures)
+                                                        ▲   │
+[rust-implementer] code + 03_changes ───────────────────┘   ▼ fix requests (file:line)
+        ▲───────── Producer–Reviewer loop (≤3) ──────────► 04_qa_report (PR-ready?)
+   │  (epic: loop Phase 3–5 for next slice)
+   ▼ TeamDelete (after last slice)
 [Leader] pr-evidence-bundle → PR draft (await user go-ahead)
 ```
 
@@ -108,8 +116,8 @@ Planner reads `_workspace/01_analyst_*.md`, selects ONE slice, writes `02_planne
 6. Expected: `_workspace/01..04` artifacts present, drift-check exit 0, PR bundle complete.
 
 ### Error path
-1. Implementer adds a crate to `idd` to finish faster.
-2. QA's drift-check exits 1 (Cargo.lock package count > 1) → marks Rust-native drift **fail**, SendMessages a port-to-std fix request.
-3. Implementer removes the dependency, re-implements with `std`, rebuilds.
-4. QA re-verifies → drift-check clean, gates green → PR-ready: yes.
+1. During the lifecycle-port slice, the implementer adds `serde` to the **core** crate to finish faster (the spec crate may use serde_norway; the core may not).
+2. QA's drift-check exits 1 — the core crate's `[dependencies]` is no longer empty → marks Rust-native drift **fail**, SendMessages a fix request: move the serialization to the `spec` crate edge, keep the core std-only.
+3. Implementer relocates the dependency off the core crate, rebuilds.
+4. QA re-verifies → drift-check clean, `cargo build/test --workspace` green, lifecycle fixtures conform → PR-ready: yes.
 5. Report notes the drift was caught and corrected before PR.
