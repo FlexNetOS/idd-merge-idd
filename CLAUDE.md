@@ -2,6 +2,17 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Harness: Merge Dev Operation
+
+**Goal:** Turn a merge/migration intent into one reviewable, parity-backed, Rust-native vertical slice with full PR evidence.
+
+**Trigger:** For any merge/migration/unification dev operation in this repo — scanning repos, planning a slice, implementing a migration, QA-ing a change, checking Rust-native drift, or assembling merge-PR evidence (and follow-ups: re-run, refine the plan, redo only the implementation/QA) — use the `merge-orchestrator` skill. Simple one-off questions may be answered directly.
+
+**Change history:**
+| Date | Change | Target | Reason |
+|------|--------|--------|--------|
+| 2026-06-04 | Initial setup | All (4 agents, 6 skills) | - |
+
 ## Session start protocol (mandatory)
 
 1. **Sync first.** `rtk git fetch --all` then confirm the working branch is level with `origin/main` (`rtk git status -sb`). Do not start work on a stale tree.
