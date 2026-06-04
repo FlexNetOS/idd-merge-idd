@@ -42,10 +42,9 @@ Two slice types replace parity with a different correctness gate (the planner de
 - Manifest: after any change to generated control-plane files, `.idd/MANIFEST.tsv` must match reality. Run `idd manifest --workspace <ws>` and confirm it reports no surprising additions/changes.
 
 ### 4. CI gates (local must equal CI)
-Mirror `.github/workflows/ci.yml` exactly. Run from the affected crate directory in the current two-crate layout; once the workspace exists, run at the workspace root with `--workspace`:
+Mirror `.github/workflows/ci.yml` exactly. Run at the workspace root with `--workspace`:
 ```bash
-# pre-workspace: in intent-driven-development/ or openspec-tui-main/
-# post-workspace: at the rusty-idd/ root (add --workspace)
+# at the workspace root (members: crates/core, crates/tui)
 rtk cargo fmt --all -- --check
 rtk cargo clippy --all-targets --all-features -- -D warnings
 rtk cargo test --all --locked          # --workspace once the root Cargo.toml exists

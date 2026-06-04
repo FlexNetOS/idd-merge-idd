@@ -40,7 +40,7 @@ Fill the template below completely. Migration intent and rollback are not option
 ### 5. Emit a narrow task
 Record the slice as an `idd task` so it can drive a single PR/issue:
 ```bash
-# from intent-driven-development/
+# from the workspace root (idd bin in crates/core)
 rtk cargo run --bin idd -- task --out <ws>/AI_MERGE/07_tasks --kind <kind> --title "<one-line slice title>"
 ```
 

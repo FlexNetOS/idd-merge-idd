@@ -1,16 +1,16 @@
-# rusty-idd — Cargo workspace skeleton (epic slice 1).
+# rusty-idd — Cargo workspace.
 #
-# Virtual root that wires the existing crates into one workspace IN PLACE.
-# No directories move in this slice — slices 2-3 relocate the members under
-# crates/ (intent-driven-development -> crates/core, openspec-tui-main ->
-# crates/runner + crates/tui) and slice 4 adds crates/spec. Keeping members at
-# their current paths makes this slice a minimal, buildable, reversible step.
+# Members live under crates/ (slices 2-3 relocated them):
+#   crates/core  — the std-only, zero-dependency idd crate (was intent-driven-development)
+#   crates/tui   — the ratatui OpenSpec TUI (was openspec-tui-main)
+# Slice 4 adds crates/spec (the ported OpenSpec lifecycle engine); a later slice
+# extracts crates/cli and (optionally) crates/runner.
 #
-# resolver = "3" is required because members mix editions (2021 + 2024); the
-# virtual root has no package.edition to infer it from, so it is set explicitly.
+# resolver = "3" is required because members mix editions (core 2021 + tui 2024);
+# the virtual root has no package.edition to infer it from, so it is set explicitly.
 [workspace]
 resolver = "3"
 members = [
-    "intent-driven-development",
-    "openspec-tui-main",
+    "crates/core",
+    "crates/tui",
 ]

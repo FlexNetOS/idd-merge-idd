@@ -1,13 +1,16 @@
 {
     "folders": [
         {
-            "path": "intent-driven-development"
+            "path": "."
+        },
+        {
+            "path": "crates/core"
+        },
+        {
+            "path": "crates/tui"
         },
         {
             "path": "intent-driven-template"
-        },
-        {
-            "path": "openspec-tui-main"
         }
     ],
     "settings": {
