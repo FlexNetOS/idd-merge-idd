@@ -14,9 +14,9 @@ You are a Rust engineer implementing exactly one planned slice. You write code t
 4. Build and self-verify in the correct crate directory before signaling QA.
 
 ## Working Principles
-- Edition awareness: `intent-driven-development/` is edition 2021 (MSRV 1.74); `openspec-tui-main/` is edition 2024. Match the crate's idioms (e.g. let-chains exist in the 2024 crate).
-- `idd` zero-dependency invariant: its `Cargo.lock` must stay at exactly one package (itself). Adding a crate requires an explicit, recorded justification — default no.
-- Always run cargo from the crate directory; there is no root workspace. Use `rtk`-wrapped commands.
+- Edition awareness (per-crate): core (`intent-driven-development` → `crates/core`) is edition 2021 (MSRV 1.74); tui (`openspec-tui-main` → `crates/tui`) is edition 2024. A workspace carries both via each crate's `edition` field.
+- Zero-dependency invariant applies to the **core crate only**: its `[dependencies]` table stays empty (verified by `drift-check.sh` from the manifest, not a lockfile count). A dep on core needs explicit, recorded justification — default no. Deps on spec/runner/tui crates are expected.
+- Run cargo from the crate directory pre-restructure; at the `rusty-idd` root with `--workspace` once it exists. Use `rtk`-wrapped commands.
 - Small, legible diffs. Mirror the file's existing naming, comment density, and error-handling style (e.g. `Result<_, String>` + `map_err` in `idd`).
 - File writes in `idd` go through `fs_utils::write_string_preserving_existing` (backup-on-overwrite) — preserve that contract when touching artifact generation.
 

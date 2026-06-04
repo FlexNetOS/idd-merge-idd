@@ -4,14 +4,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Harness: Merge Dev Operation
 
-**Goal:** Turn a merge/migration intent into one reviewable, parity-backed, Rust-native vertical slice with full PR evidence.
+**Goal:** Build **rusty-idd** — unify the three directors into one Rust-native Cargo workspace — by turning each merge/migration intent into a reviewable, Rust-native slice with full PR evidence.
 
-**Trigger:** For any merge/migration/unification dev operation in this repo — scanning repos, planning a slice, implementing a migration, QA-ing a change, checking Rust-native drift, or assembling merge-PR evidence (and follow-ups: re-run, refine the plan, redo only the implementation/QA) — use the `merge-orchestrator` skill. Simple one-off questions may be answered directly.
+**Trigger:** For any merge/migration/unification dev operation in this repo — building rusty-idd, the workspace restructure, porting the OpenSpec lifecycle to Rust, scanning repos, sequencing the epic, planning a slice, implementing a migration, QA-ing a change, checking Rust-native drift, or assembling merge-PR evidence (and follow-ups: re-run, refine the plan/epic, redo only the implementation/QA/lifecycle-port) — use the `merge-orchestrator` skill. Simple one-off questions may be answered directly.
 
 **Change history:**
 | Date | Change | Target | Reason |
 |------|--------|--------|--------|
 | 2026-06-04 | Initial setup | All (4 agents, 6 skills) | - |
+| 2026-06-04 | Add `lifecycle-porter` agent + `lifecycle-porting` skill; generalize `drift-check.sh` (layout-agnostic, core-crate dep check); add epic/slice-type layer to planner+orchestrator; re-scope Rust-native invariant to the core crate | agents, skills, CLAUDE.md | Research found the harness was aimed at the current 2-crate snapshot; retargeted it to *build rusty-idd* (workspace restructure + Node→Rust lifecycle port) |
 
 ## Session start protocol (mandatory)
 
@@ -62,21 +63,17 @@ Notes:
 
 ## Rust-native invariant (critical — verify, don't assume)
 
-The `idd` crate's defining constraint is **Rust-native, std-only, no network calls**: its `Cargo.lock` contains exactly one package (itself) and `[dependencies]` is empty. This is a design principle (`README.md` → "Design principles"), not an accident. `openspec-tui` may use its curated crates (ratatui, crossterm, serde…), but neither crate may contain non-Rust source.
+The constraint is scoped to the **zero-dependency core crate** (today `intent-driven-development`/`idd`; in the target `rusty-idd` workspace, `crates/core`): **Rust-native, std-only, no network calls** — its `[dependencies]` table stays empty. This is a design principle (`README.md` → "Design principles"), not an accident. The **other crates are allowed their researched dependencies** — `openspec-tui` already uses ratatui/crossterm/serde, and the ported spec engine will use comrak/serde_norway/clap. What never changes: no crate's `src/` may contain non-Rust source, and the core crate stays dependency-free. The invariant is the *core crate*, not the whole workspace.
 
 **Guard against language/dependency drift on every change:**
 
-1. **Detect.** Before finishing any task, verify nothing drifted off Rust-native. Both `src/` trees must be `*.rs` only:
+1. **Detect.** Before finishing any task, run the layout-agnostic drift gate (it survives the `crates/*` restructure — it discovers crates by their `Cargo.toml`, checks the core crate's own `[dependencies]`, not a lockfile count):
    ```bash
-   find intent-driven-development/src openspec-tui-main/src -type f | grep -v '\.rs$'   # must print nothing
+   bash .claude/skills/merge-verification/scripts/drift-check.sh .   # exit 0 = clean
    ```
-   For `idd` specifically, its dependency graph must stay empty:
-   ```bash
-   grep -c '^\[\[package\]\]' intent-driven-development/Cargo.lock   # must stay 1
-   ```
-   Be especially alert to agent tooling that *auto-generates a package in another language or format* (e.g. a stray `.omc`, an `ecc`-style auto-pushed package, a Node/Python helper, a new crate dependency) and commits it as a convenience. Treat any such artifact as drift to be caught, not adopted.
-2. **Transform.** If foreign-language code or an unjustified dependency has crept in, **port it to Rust-native** (prefer `std`; for `idd`, `std` only — do not add a crate to dodge the work) rather than wrapping or shelling out to it. Adding an external crate to `idd` requires an explicit, recorded reason in the PR; the default answer is no.
-3. **Sync.** After porting, re-run the full CI triplet (`fmt --check`, `clippy -D warnings`, `test --all --locked`), refresh the affected `idd` manifest (`idd manifest --workspace <ws>`) so `.idd/MANIFEST.tsv` matches reality, and note the old→new path in the PR migration note.
+   Be especially alert to agent tooling that *auto-generates a package in another language or format* (a stray `.omc`, an `ecc`-style auto-pushed package, a Node/Python helper, a new dependency **on the core crate**) and commits it as a convenience. Treat any such artifact as drift to be caught, not adopted. (Legitimately non-Rust asset trees — `intent-driven-template/`, `.claude/`, `.github/`, `docs/`, `openspec/` — are whitelisted by the gate.)
+2. **Transform.** If foreign-language code, or a dependency on the **core** crate, has crept in, **port it to Rust-native** (`std` only for the core) rather than wrapping or shelling out — or relocate the dependency to the appropriate non-core crate edge. A dep on the core crate requires an explicit, recorded reason; the default answer is no. A dep on spec/runner/tui is expected, not drift.
+3. **Sync.** After porting, re-run the CI triplet (`fmt --check`, `clippy -D warnings`, `test --all --locked` — add `--workspace` once the root manifest exists), refresh the affected `idd` manifest (`idd manifest --workspace <ws>`), and note the old→new path in the PR migration note.
 
 ## Merge/PR discipline (from AGENTS.md)
 

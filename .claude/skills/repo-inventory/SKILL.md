@@ -44,12 +44,14 @@ From the scan's secret references, classify each key:
 List provider/source per key (GitHub Actions, dotenv, Vault/OpenBao, SOPS, Doppler, Infisical, direnv, mise, etc. — `idd` detects these).
 
 ### 6. Capture the Rust-native baseline
-Record the known-good starting state so QA can detect drift later:
+Record the known-good starting state so QA can detect drift later. Use the **layout-agnostic** drift gate rather than hardcoded paths (the tree gets restructured into `crates/*`):
 ```bash
-find intent-driven-development/src openspec-tui-main/src -type f | grep -v '\.rs$'   # expect empty
-grep -c '^\[\[package\]\]' intent-driven-development/Cargo.lock                       # expect 1
+bash .claude/skills/merge-verification/scripts/drift-check.sh .   # expect: no drift, exit 0
 ```
-Note both results plus per-crate language counts in `_workspace/01_analyst_baseline.md`.
+Note its output (discovered crate src trees + which crate is the zero-dep core) plus per-crate language counts in `_workspace/01_analyst_baseline.md`. This baseline is what QA re-runs after each slice.
+
+### 7. Hand the lifecycle off to the porter (don't port it yourself)
+The OpenSpec lifecycle (`intent-driven-template/openspec/schemas/intent-driven/schema.yaml` + the `.opencode/`/`.agents` skills) is a *porting source*, not just inventory. Note its presence and scope in your inventory, but the constructive extraction into a contract is `lifecycle-porter`'s job (`_workspace/01_lifecycle_contract.md`) — flag it to the porter rather than duplicating it.
 
 ## Output artifacts (write to `_workspace/`)
 - `01_analyst_inventory.md` — per-repo inventory summary.
