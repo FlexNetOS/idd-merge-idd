@@ -890,15 +890,23 @@ dependencies = [
 ]
 
 [[package]]
-name = "openspec-tui"
+name = "openspec-runner"
 version = "0.1.0"
 dependencies = [
  "chrono",
- "crossterm",
- "ratatui",
  "serde",
  "serde_json",
  "serde_yaml",
+ "tempfile",
+]
+
+[[package]]
+name = "openspec-tui"
+version = "0.1.0"
+dependencies = [
+ "crossterm",
+ "openspec-runner",
+ "ratatui",
  "tempfile",
  "tui-markdown",
 ]
