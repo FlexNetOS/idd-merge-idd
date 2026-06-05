@@ -8,17 +8,21 @@
 //! - [`validate`] is the serde edge (structural rules -> a report matching the
 //!   oracle JSON shape).
 //! - [`archive`] orchestrates merge + emit transactionally (the filesystem move
-//!   is left to the CLI in a later slice).
+//!   is left to the CLI).
+//! - [`schema`] is the serde_norway edge: loads `schema.yaml` into the artifact
+//!   DAG and answers `next_ready` / `is_archivable` over a `done` set.
 //!
-//! Out of scope for this slice (deferred to slice 7 and beyond): `schema/`
-//! (artifact DAG), `scaffold/` (minijinja templates), `adr/`, and `cli/` (clap).
+//! Still deferred (later slices): `scaffold/` (minijinja templates) and `adr/`.
+//! The `cli/` edge lives in `crates/cli`.
 
 pub mod archive;
 pub mod model;
 pub mod parse;
+pub mod schema;
 pub mod validate;
 
 // Convenience re-exports of the most-used items.
 pub use model::{apply_delta, Delta, DeltaOp, MergeError, Requirement, Scenario, SpecDoc};
 pub use parse::{emit_spec, parse_delta, parse_spec};
+pub use schema::{load_schema, Artifact, Schema, SchemaError};
 pub use validate::{validate_spec, Report};
