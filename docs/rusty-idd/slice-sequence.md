@@ -14,7 +14,9 @@ The build order the `merge-orchestrator` harness executes (one slice per loop of
 | 4 | **Split `crates/tui` → `crates/runner` + `crates/tui`** | refactor | ✅ done | `crates/runner` lib (runner/config/data); tui depends on it; `--workspace` green | re-merge |
 | 6 | **Port lifecycle → `crates/spec`** | lifecycle-port | ✅ done | semantic golden conformance (parse→merge→emit→re-parse == oracle `03`); validate JSON matches `04`/`05`; transactional merge | drop `crates/spec` |
 | 7 | **Unified `crates/cli`** (`rusty-idd`) | migration | ✅ done | `rusty-idd scan` byte-identical to `idd scan`; spec validate/archive + headless run + tui launcher; old bins still work | keep old entrypoints |
-| 8 | **Retire old entrypoints + oracle** | migration | ⏳ | parity proven for all verbs; no Node in shipped product | restore shims |
+| 8 | **Retire old entrypoints + oracle** | migration | ✅ done | `idd`/`openspec-tui` bins removed (core/tui now libs); `rusty-idd` sole binary; Cargo.lock 100% Rust (zero Node) | restore shims |
+
+**🎉 Epic complete.** rusty-idd is one Rust-native Cargo workspace: `crates/{core, runner, tui, spec, cli}` producing the single `rusty-idd` binary. All three directors unified (idd control plane + OpenSpec lifecycle + tui execution), no Node in the product.
 
 ## Notes
 - **Slices 2–3 kept each existing crate whole** (a directory move, not a code refactor). `openspec-tui` became `crates/tui` as one crate; the `runner`/`tui` split (slice 4) is a genuine refactor, not a move, so it was deferred rather than smuggled into a structural slice.
