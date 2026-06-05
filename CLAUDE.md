@@ -16,6 +16,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 2026-06-04 | Execute epic slices 2–3: `intent-driven-development`→`crates/core`, `openspec-tui-main`→`crates/tui`; relocate+upgrade CI to root `.github/` (workspace-aware, drift gate, fmt/clippy non-blocking); fix tui CWD-race flake; refresh layout docs | repo layout, CI, CLAUDE.md, docs/rusty-idd | Continue the rusty-idd unification; the drift gate's retarget proved out (root lock 234 pkgs, core still zero-dep) |
 | 2026-06-04 | Slice 5: fmt + clippy cleanup across both crates; flip CI fmt/clippy to blocking | both crates, CI | Workspace now fully lint-clean; CI fully enforcing |
 | 2026-06-04 | Slice 4: split `crates/tui` → `crates/runner` (runner/config/data lib) + `crates/tui` (UI); tui re-exports runner modules | crates, Cargo manifests | So the future `crates/cli` can reuse the execution layer without ratatui |
+| 2026-06-04 | Slice 6: build `crates/spec` (the OpenSpec lifecycle engine) — pure model + comrak parse/emit + transactional merge + validate + archive; semantic golden tests vs oracle fixtures | new crate, root Cargo | The crux: Rust-native lifecycle (no Node in the product); byte-exact parity a documented non-goal |
 
 ## Session start protocol (mandatory)
 
@@ -36,7 +37,7 @@ This **is** a Cargo workspace now (the rusty-idd unification, in progress — se
 | `crates/core/` | Rust crate, edition 2021 (`idd` bin), **zero-dep / std-only** | The core CLI (was `intent-driven-development`). Generates the AI-merge **control plane** (markdown + JSON contracts, CI gates, agent templates). Not an AI agent — it produces artifacts agents execute. |
 | `crates/runner/` | Rust lib, edition 2024 (`openspec_runner`) | The non-UI execution layer split out of the TUI: `runner` (spawn an agent CLI, stream progress, stall detection, batch), `data` (parse `tasks.md`, list changes), `config` (`TuiConfig`). Consumed by `crates/tui` and (later) `crates/cli`. |
 | `crates/tui/` | Rust crate, edition 2024 (`openspec-tui`) | ratatui/crossterm TUI (was `openspec-tui-main`); the UI layer (`app`, `ui`, `main`). Depends on `crates/runner` for execution; re-exports its modules so `crate::config`/`crate::data`/`crate::runner` resolve. |
-| `crates/spec/` | (planned, slice 6) | The OpenSpec lifecycle engine ported to Rust — see `docs/rusty-idd/spec-engine-design.md`. |
+| `crates/spec/` | Rust lib, edition 2021 (`rusty_idd_spec`) | The OpenSpec lifecycle engine ported to Rust. Hexagonal: a **pure** `model/` (Requirement/Scenario/SpecDoc/Delta + transactional `apply_delta` merge — MODIFIED is whole-block replace), with comrak (`parse`/`emit`), serde (`validate` JSON), and `archive` orchestration at the edges. Deferred edges (slice 7+): `schema`/`scaffold`/`adr`/`cli`. Design: `docs/rusty-idd/spec-engine-design.md`; verified vs `docs/rusty-idd/oracle-fixtures/`. |
 | `intent-driven-template/` | **Not code** — template assets | OpenSpec scaffolding: `.agents/`, `.opencode/`, `openspec/` schema/templates. The lifecycle being ported into `crates/spec`. |
 
 ### `crates/core` (`idd`) architecture
