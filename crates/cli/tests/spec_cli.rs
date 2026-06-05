@@ -100,6 +100,63 @@ fn spec_validate_strict_fails_on_warning() {
 }
 
 #[test]
+fn spec_validate_strict_human_summary_matches_exit_code() {
+    // Regression: the human summary must agree with the exit code under --strict.
+    // The base fixture is valid-with-WARNING: a strict run exits 1, so the
+    // printed summary must read FAILED (not the old "1 passed, 0 failed").
+    let strict = Command::new(bin())
+        .args(["spec", "validate"])
+        .arg(fixture("01-base-spec.md"))
+        .arg("--strict")
+        .output()
+        .expect("run rusty-idd");
+    assert_eq!(strict.status.code(), Some(1));
+    let text = String::from_utf8_lossy(&strict.stdout);
+    assert!(
+        text.contains("0 passed, 1 failed"),
+        "strict summary must report the WARNING item as failed, got:\n{text}"
+    );
+    assert!(
+        text.contains("INVALID"),
+        "strict per-item status must read INVALID, got:\n{text}"
+    );
+
+    // Without --strict the same spec passes: summary reads passed, exit 0.
+    let lax = Command::new(bin())
+        .args(["spec", "validate"])
+        .arg(fixture("01-base-spec.md"))
+        .output()
+        .expect("run rusty-idd");
+    assert!(lax.status.success());
+    let lax_text = String::from_utf8_lossy(&lax.stdout);
+    assert!(
+        lax_text.contains("1 passed, 0 failed"),
+        "non-strict summary must report passed, got:\n{lax_text}"
+    );
+}
+
+#[test]
+fn spec_validate_json_is_strict_blind() {
+    // --strict must NOT alter the JSON payload (oracle parity): a warning-only
+    // spec still serializes valid:true / passed:1 regardless of --strict, while
+    // the process still exits 1 under --strict.
+    let out = Command::new(bin())
+        .args(["spec", "validate"])
+        .arg(fixture("01-base-spec.md"))
+        .args(["--json", "--strict"])
+        .output()
+        .expect("run rusty-idd");
+    assert_eq!(out.status.code(), Some(1), "strict still exits 1");
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(
+        json["items"][0]["valid"], true,
+        "JSON payload stays strict-blind"
+    );
+    assert_eq!(json["summary"]["totals"]["passed"], 1);
+    assert_eq!(json["summary"]["totals"]["failed"], 0);
+}
+
+#[test]
 fn spec_show_lists_requirements() {
     let out = Command::new(bin())
         .args(["spec", "show"])
