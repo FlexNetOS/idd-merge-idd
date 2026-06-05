@@ -106,7 +106,7 @@ impl TuiConfig {
             return Ok(Self::default());
         }
         let contents = std::fs::read_to_string(path)?;
-        let config: TuiConfig = serde_yaml::from_str(&contents)?;
+        let config: TuiConfig = serde_norway::from_str(&contents)?;
         Ok(config)
     }
 
@@ -115,7 +115,7 @@ impl TuiConfig {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
         }
-        let yaml = serde_yaml::to_string(self)?;
+        let yaml = serde_norway::to_string(self)?;
         std::fs::write(path, yaml)?;
         Ok(())
     }
@@ -164,7 +164,7 @@ mod tests {
     #[test]
     fn test_deserialize_partial_uses_defaults() {
         let yaml = "command: custom-tool {prompt}\n";
-        let config: TuiConfig = serde_yaml::from_str(yaml).unwrap();
+        let config: TuiConfig = serde_norway::from_str(yaml).unwrap();
         assert_eq!(config.command, "custom-tool {prompt}");
         assert_eq!(config.prompt, DEFAULT_PROMPT);
     }
@@ -172,7 +172,7 @@ mod tests {
     #[test]
     fn test_deserialize_empty_uses_defaults() {
         let yaml = "{}";
-        let config: TuiConfig = serde_yaml::from_str(yaml).unwrap();
+        let config: TuiConfig = serde_norway::from_str(yaml).unwrap();
         assert_eq!(config.command, DEFAULT_COMMAND);
         assert_eq!(config.prompt, DEFAULT_PROMPT);
     }
@@ -184,8 +184,8 @@ mod tests {
             prompt: "do {name} stuff".to_string(),
             ..Default::default()
         };
-        let yaml = serde_yaml::to_string(&config).unwrap();
-        let deserialized: TuiConfig = serde_yaml::from_str(&yaml).unwrap();
+        let yaml = serde_norway::to_string(&config).unwrap();
+        let deserialized: TuiConfig = serde_norway::from_str(&yaml).unwrap();
         assert_eq!(config.command, deserialized.command);
         assert_eq!(config.prompt, deserialized.prompt);
         assert_eq!(
@@ -202,15 +202,15 @@ mod tests {
             post_implementation_prompt: "commit {name}".to_string(),
             ..Default::default()
         };
-        let yaml = serde_yaml::to_string(&config).unwrap();
-        let deserialized: TuiConfig = serde_yaml::from_str(&yaml).unwrap();
+        let yaml = serde_norway::to_string(&config).unwrap();
+        let deserialized: TuiConfig = serde_norway::from_str(&yaml).unwrap();
         assert_eq!(deserialized.post_implementation_prompt, "commit {name}");
     }
 
     #[test]
     fn test_deserialize_without_post_prompt_defaults_to_empty() {
         let yaml = "command: my-tool {prompt}\nprompt: do stuff\n";
-        let config: TuiConfig = serde_yaml::from_str(yaml).unwrap();
+        let config: TuiConfig = serde_norway::from_str(yaml).unwrap();
         assert_eq!(config.post_implementation_prompt, "");
     }
 
@@ -229,14 +229,14 @@ mod tests {
     #[test]
     fn test_deserialize_with_interactive_command() {
         let yaml = "interactive_command: aider\n";
-        let config: TuiConfig = serde_yaml::from_str(yaml).unwrap();
+        let config: TuiConfig = serde_norway::from_str(yaml).unwrap();
         assert_eq!(config.interactive_command, "aider");
     }
 
     #[test]
     fn test_deserialize_without_interactive_command_defaults_to_claude() {
         let yaml = "command: my-tool {prompt}\nprompt: do stuff\n";
-        let config: TuiConfig = serde_yaml::from_str(yaml).unwrap();
+        let config: TuiConfig = serde_norway::from_str(yaml).unwrap();
         assert_eq!(config.interactive_command, "claude");
     }
 
@@ -246,8 +246,8 @@ mod tests {
             interactive_command: "aider --model gpt4".to_string(),
             ..Default::default()
         };
-        let yaml = serde_yaml::to_string(&config).unwrap();
-        let deserialized: TuiConfig = serde_yaml::from_str(&yaml).unwrap();
+        let yaml = serde_norway::to_string(&config).unwrap();
+        let deserialized: TuiConfig = serde_norway::from_str(&yaml).unwrap();
         assert_eq!(deserialized.interactive_command, "aider --model gpt4");
     }
 
@@ -260,14 +260,14 @@ mod tests {
     #[test]
     fn test_deserialize_with_run_finished_command() {
         let yaml = "run_finished_command: notify-send done\n";
-        let config: TuiConfig = serde_yaml::from_str(yaml).unwrap();
+        let config: TuiConfig = serde_norway::from_str(yaml).unwrap();
         assert_eq!(config.run_finished_command, "notify-send done");
     }
 
     #[test]
     fn test_deserialize_without_run_finished_command_defaults_to_empty() {
         let yaml = "command: my-tool {prompt}\nprompt: do stuff\n";
-        let config: TuiConfig = serde_yaml::from_str(yaml).unwrap();
+        let config: TuiConfig = serde_norway::from_str(yaml).unwrap();
         assert_eq!(config.run_finished_command, "");
     }
 
@@ -277,9 +277,42 @@ mod tests {
             run_finished_command: "ntfy pub topic done".to_string(),
             ..Default::default()
         };
-        let yaml = serde_yaml::to_string(&config).unwrap();
-        let deserialized: TuiConfig = serde_yaml::from_str(&yaml).unwrap();
+        let yaml = serde_norway::to_string(&config).unwrap();
+        let deserialized: TuiConfig = serde_norway::from_str(&yaml).unwrap();
         assert_eq!(deserialized.run_finished_command, "ntfy pub topic done");
+    }
+
+    /// Golden on-disk format: the serde_norway YAML output of a fully-populated
+    /// config must be byte-identical to the established block-style layout
+    /// (field order, no quoting of `{placeholder}` values, trailing newline).
+    /// This locks `openspec/tui-config.yaml` compatibility across the
+    /// serde_yaml→serde_norway migration so existing user config files keep
+    /// loading and saving unchanged.
+    #[test]
+    fn test_golden_yaml_on_disk_format_is_stable() {
+        let config = TuiConfig {
+            command: "my-tool {prompt}".to_string(),
+            prompt: "do {name} stuff".to_string(),
+            post_implementation_prompt: "commit {name}".to_string(),
+            interactive_command: "claude-i".to_string(),
+            run_finished_command: "notify done".to_string(),
+        };
+        let golden = "command: my-tool {prompt}\n\
+                      prompt: do {name} stuff\n\
+                      post_implementation_prompt: commit {name}\n\
+                      interactive_command: claude-i\n\
+                      run_finished_command: notify done\n";
+        assert_eq!(serde_norway::to_string(&config).unwrap(), golden);
+        // And it round-trips back to the same struct.
+        let back: TuiConfig = serde_norway::from_str(golden).unwrap();
+        assert_eq!(back.command, config.command);
+        assert_eq!(back.prompt, config.prompt);
+        assert_eq!(
+            back.post_implementation_prompt,
+            config.post_implementation_prompt
+        );
+        assert_eq!(back.interactive_command, config.interactive_command);
+        assert_eq!(back.run_finished_command, config.run_finished_command);
     }
 
     mod placeholder_tests {

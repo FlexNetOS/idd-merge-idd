@@ -304,7 +304,7 @@ pub fn read_change_config(change_dir: &Path) -> ChangeConfig {
         Ok(c) => c,
         Err(_) => return ChangeConfig::default(),
     };
-    serde_yaml::from_str(&content).unwrap_or_default()
+    serde_norway::from_str(&content).unwrap_or_default()
 }
 
 /// Read dependencies for a change from its `change-config.yaml` file.
@@ -347,7 +347,7 @@ pub fn load_change_dependencies(changes: &[ChangeEntry]) -> HashMap<String, Vec<
 /// Creates or overwrites the file.
 pub fn write_change_config(change_dir: &Path, config: &ChangeConfig) -> Result<(), String> {
     let path = change_dir.join("change-config.yaml");
-    let yaml = serde_yaml::to_string(config)
+    let yaml = serde_norway::to_string(config)
         .map_err(|e| format!("Failed to serialize change config: {e}"))?;
     fs::write(&path, yaml).map_err(|e| format!("Failed to write {}: {e}", path.display()))
 }
@@ -1533,7 +1533,7 @@ mod tests {
     #[test]
     fn test_change_config_missing_run_mode_defaults_to_normal() {
         let yaml = "depends_on:\n  - dep-a\n";
-        let config: ChangeConfig = serde_yaml::from_str(yaml).unwrap();
+        let config: ChangeConfig = serde_norway::from_str(yaml).unwrap();
         assert_eq!(config.run_mode, RunMode::Normal);
         assert_eq!(config.depends_on, vec!["dep-a"]);
     }
@@ -1541,21 +1541,21 @@ mod tests {
     #[test]
     fn test_change_config_explicit_apply_mode() {
         let yaml = "depends_on: []\nrun_mode: apply\n";
-        let config: ChangeConfig = serde_yaml::from_str(yaml).unwrap();
+        let config: ChangeConfig = serde_norway::from_str(yaml).unwrap();
         assert_eq!(config.run_mode, RunMode::Apply);
     }
 
     #[test]
     fn test_change_config_explicit_normal_mode() {
         let yaml = "run_mode: normal\n";
-        let config: ChangeConfig = serde_yaml::from_str(yaml).unwrap();
+        let config: ChangeConfig = serde_norway::from_str(yaml).unwrap();
         assert_eq!(config.run_mode, RunMode::Normal);
     }
 
     #[test]
     fn test_change_config_empty_yaml_defaults() {
         let yaml = "{}";
-        let config: ChangeConfig = serde_yaml::from_str(yaml).unwrap();
+        let config: ChangeConfig = serde_norway::from_str(yaml).unwrap();
         assert_eq!(config.run_mode, RunMode::Normal);
         assert!(config.depends_on.is_empty());
     }
@@ -1566,8 +1566,8 @@ mod tests {
             depends_on: vec!["dep-a".to_string(), "dep-b".to_string()],
             run_mode: RunMode::Apply,
         };
-        let yaml = serde_yaml::to_string(&config).unwrap();
-        let deserialized: ChangeConfig = serde_yaml::from_str(&yaml).unwrap();
+        let yaml = serde_norway::to_string(&config).unwrap();
+        let deserialized: ChangeConfig = serde_norway::from_str(&yaml).unwrap();
         assert_eq!(deserialized.depends_on, config.depends_on);
         assert_eq!(deserialized.run_mode, RunMode::Apply);
     }
