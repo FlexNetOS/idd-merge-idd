@@ -829,10 +829,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "intent-driven-development"
-version = "0.2.0"
-
-[[package]]
 name = "is_terminal_polyfill"
 version = "1.70.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1107,28 +1103,6 @@ checksum = "1e68317604e77e53b85896388e1a803c1d21b74c899ec9e5e1112db90735edd7"
 dependencies = [
  "cc",
  "pkg-config",
-]
-
-[[package]]
-name = "openspec-runner"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "serde",
- "serde_json",
- "serde_yaml",
- "tempfile",
-]
-
-[[package]]
-name = "openspec-tui"
-version = "0.1.0"
-dependencies = [
- "crossterm",
- "openspec-runner",
- "ratatui",
- "tempfile",
- "tui-markdown",
 ]
 
 [[package]]
@@ -1629,11 +1603,26 @@ name = "rusty-idd-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
- "intent-driven-development",
- "openspec-runner",
- "openspec-tui",
+ "rusty-idd-core",
+ "rusty-idd-runner",
  "rusty-idd-spec",
+ "rusty-idd-tui",
  "serde_json",
+ "tempfile",
+]
+
+[[package]]
+name = "rusty-idd-core"
+version = "0.2.0"
+
+[[package]]
+name = "rusty-idd-runner"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "serde",
+ "serde_json",
+ "serde_yaml",
  "tempfile",
 ]
 
@@ -1645,6 +1634,17 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.18",
+]
+
+[[package]]
+name = "rusty-idd-tui"
+version = "0.1.0"
+dependencies = [
+ "crossterm",
+ "ratatui",
+ "rusty-idd-runner",
+ "tempfile",
+ "tui-markdown",
 ]
 
 [[package]]

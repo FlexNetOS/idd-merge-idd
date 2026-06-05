@@ -1,15 +1,15 @@
-//! openspec-tui — the interactive ratatui OpenSpec TUI, exposed as a library so
-//! the unified `rusty-idd` binary can launch it via [`run`] in addition to the
-//! standalone `openspec-tui` binary (deprecate-before-delete: both entry points
-//! share this one implementation).
+//! rusty-idd-tui — the interactive ratatui OpenSpec TUI, exposed as a library so
+//! the unified `rusty-idd` binary launches it via [`run`] (`rusty-idd tui`). The
+//! standalone `openspec-tui` binary was retired in slice 8; this is the sole
+//! entry point now.
 
 pub mod app;
 pub mod ui;
 
-// The execution layer lives in the `openspec-runner` crate. Re-export its
+// The execution layer lives in the `rusty-idd-runner` crate. Re-export its
 // modules at the crate root so `crate::config` / `crate::data` / `crate::runner`
 // paths in `app.rs` and `ui.rs` keep resolving unchanged.
-pub use openspec_runner::{config, data, runner};
+pub use rusty_idd_runner::{config, data, runner};
 
 use std::io;
 

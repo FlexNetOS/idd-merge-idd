@@ -19,6 +19,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 2026-06-04 | Slice 6: build `crates/spec` (the OpenSpec lifecycle engine) — pure model + comrak parse/emit + transactional merge + validate + archive; semantic golden tests vs oracle fixtures | new crate, root Cargo | The crux: Rust-native lifecycle (no Node in the product); byte-exact parity a documented non-goal |
 | 2026-06-04 | Slice 7: build `crates/cli` (`rusty-idd`) unifying core (delegated, byte-identical) + spec (validate/archive/show + FS edge) + headless run + tui; split `crates/tui` into lib+bin so the loop is callable | new crate, tui lib split | The unified superflow binary; old `idd`/`openspec-tui` bins kept until slice 8 |
 | 2026-06-04 | Slice 8 (final): retire the `idd` and `openspec-tui` bins (core/tui are now libs); point docs/run-commands at `rusty-idd`; confirm zero Node in the product | core/tui manifests, docs | rusty-idd unification epic complete — one Rust-native binary |
+| 2026-06-04 | Package/lib rename for coherence: `intent-driven-development`→`rusty-idd-core`, `openspec-runner`→`rusty-idd-runner`, `openspec-tui`→`rusty-idd-tui` (libs `rusty_idd_*`); fix slice-8-stale `--bin idd` refs in skills | all crate manifests + code refs + skills | The whole workspace is now `rusty-idd-*`; directory names unchanged |
 
 ## Session start protocol (mandatory)
 
@@ -36,22 +37,22 @@ This **is** a Cargo workspace now (the rusty-idd unification, in progress — se
 
 | Path | Kind | What it is |
 |------|------|-----------|
-| `crates/core/` | Rust **lib**, edition 2021 (`intent_driven_development`), **zero-dep / std-only** | The core control-plane logic (was `intent-driven-development`; its `idd` bin was retired — use `rusty-idd <verb>`). Generates the AI-merge **control plane** (markdown + JSON contracts, CI gates, agent templates). `cli::run` is what `crates/cli` delegates to. |
-| `crates/runner/` | Rust lib, edition 2024 (`openspec_runner`) | The non-UI execution layer split out of the TUI: `runner` (spawn an agent CLI, stream progress, stall detection, batch), `data` (parse `tasks.md`, list changes), `config` (`TuiConfig`). Consumed by `crates/tui` and `crates/cli`. |
-| `crates/tui/` | Rust **lib**, edition 2024 (`openspec_tui`) | ratatui/crossterm TUI (was `openspec-tui-main`; its `openspec-tui` bin was retired — use `rusty-idd tui`). The UI layer (`app`, `ui`); the run loop is `openspec_tui::run()`, called by `rusty-idd tui`. Depends on `crates/runner`. |
+| `crates/core/` | Rust **lib** `rusty_idd_core`, edition 2021, **zero-dep / std-only** | The core control-plane logic (was `intent-driven-development`; its `idd` bin was retired — use `rusty-idd <verb>`). Generates the AI-merge **control plane** (markdown + JSON contracts, CI gates, agent templates). `cli::run` is what `crates/cli` delegates to. |
+| `crates/runner/` | Rust lib `rusty_idd_runner`, edition 2024 | The non-UI execution layer split out of the TUI: `runner` (spawn an agent CLI, stream progress, stall detection, batch), `data` (parse `tasks.md`, list changes), `config` (`TuiConfig`). Consumed by `crates/tui` and `crates/cli`. |
+| `crates/tui/` | Rust **lib** `rusty_idd_tui`, edition 2024 | ratatui/crossterm TUI (was `openspec-tui-main`; its `openspec-tui` bin was retired — use `rusty-idd tui`). The UI layer (`app`, `ui`); the run loop is `rusty_idd_tui::run()`, called by `rusty-idd tui`. Depends on `crates/runner`. |
 | `crates/spec/` | Rust lib, edition 2021 (`rusty_idd_spec`) | The OpenSpec lifecycle engine ported to Rust. Hexagonal: a **pure** `model/` (Requirement/Scenario/SpecDoc/Delta + transactional `apply_delta` merge — MODIFIED is whole-block replace), with comrak (`parse`/`emit`), serde (`validate` JSON), and `archive` orchestration at the edges. The CLI/FS edge lives in `crates/cli`. Design: `docs/rusty-idd/spec-engine-design.md`; verified vs `docs/rusty-idd/oracle-fixtures/`. |
-| `crates/cli/` | Rust crate, edition 2021 (**`rusty-idd` bin**) | The unified CLI (clap). Flat core verbs `init/scan/plan/task/validate/manifest/github` **delegate verbatim** to `core::cli::run` (byte-identical to `idd`); `spec validate/archive/show` wraps the spec engine (incl. the transactional archive + dir move); `run` is a headless task runner over `crates/runner`; `tui` calls `openspec_tui::run()`. Supersedes the `idd` and `openspec-tui` bins (still present until they're retired). |
+| `crates/cli/` | Rust crate, edition 2021 (**`rusty-idd` bin**) | The unified CLI (clap). Flat core verbs `init/scan/plan/task/validate/manifest/github` **delegate verbatim** to `core::cli::run` (byte-identical to `idd`); `spec validate/archive/show` wraps the spec engine (incl. the transactional archive + dir move); `run` is a headless task runner over `crates/runner`; `tui` calls `rusty_idd_tui::run()`. The sole binary — the old `idd` and `openspec-tui` bins were retired in slice 8. |
 | `intent-driven-template/` | **Not code** — template assets | OpenSpec scaffolding: `.agents/`, `.opencode/`, `openspec/` schema/templates. The lifecycle being ported into `crates/spec`. |
 
 ### `crates/core` (`idd`) architecture
 
 CLI dispatch lives in `crates/core/src/cli.rs` (`run(args)` matches subcommands: `init`, `scan`, `plan`, `task`, `validate`, `manifest`, `github`). Flags are parsed by a hand-rolled `parse_flags` (`--k v` and `--k=v`) — no `clap` here (the future unified `crates/cli` will use clap). The pipeline is `scanner` (walks a repo → `RepoInventory` in `model.rs`) → `planner` (renders inventories + merge plan + tasks) → `templates` (static `&str` bodies) → `validation` (severity-graded; **critical findings make `idd validate` exit non-zero**) → `manifest` (deterministic `.idd/MANIFEST.tsv`). `env_contract.rs` detects env/secret keys. All file writes go through `fs_utils::write_string_preserving_existing` (**backup-on-overwrite**).
 
-### `crates/tui` (`openspec-tui`) + `crates/runner` architecture
+### `crates/tui` (`rusty-idd-tui`) + `crates/runner` architecture
 
 **`crates/tui`** is the UI layer: `main.rs` boots the terminal; `app.rs` holds the screen state machine; `ui.rs` renders. It depends on **`crates/runner`** for everything non-UI and re-exports its modules at the crate root (so `crate::config`/`crate::data`/`crate::runner` still resolve in `app.rs`/`ui.rs`).
 
-**`crates/runner`** (`openspec_runner` lib) is the execution layer: `data.rs` parses `tasks.md` progress and lists changes; `config.rs` holds `TuiConfig` (persisted to `openspec/tui-config.yaml`); `runner.rs` spawns the external agent in a worker thread, streams `ImplUpdate` over an mpsc channel, kills children via a shared `Arc<Mutex<Option<Child>>>` + `AtomicBool` cancel flag, and stalls after `STALL_THRESHOLD` (3) no-progress runs. Logic is covered by inline `#[cfg(test)]` modules. (CWD-mutating tests are serialized by a `CWD_GUARD` mutex in `data.rs`.)
+**`crates/runner`** (`rusty_idd_runner` lib) is the execution layer: `data.rs` parses `tasks.md` progress and lists changes; `config.rs` holds `TuiConfig` (persisted to `openspec/tui-config.yaml`); `runner.rs` spawns the external agent in a worker thread, streams `ImplUpdate` over an mpsc channel, kills children via a shared `Arc<Mutex<Option<Child>>>` + `AtomicBool` cancel flag, and stalls after `STALL_THRESHOLD` (3) no-progress runs. Logic is covered by inline `#[cfg(test)]` modules. (CWD-mutating tests are serialized by a `CWD_GUARD` mutex in `data.rs`.)
 
 ## Build, test, lint
 
@@ -60,7 +61,7 @@ Run at the **workspace root**. CI lives at `.github/workflows/ci.yml` (workspace
 ```bash
 rtk cargo build --workspace
 rtk cargo test --workspace                  # all tests
-rtk cargo test -p openspec-tui <name>       # a single test in one crate
+rtk cargo test -p rusty-idd-tui <name>       # a single test in one crate
 rtk cargo test --workspace --locked         # CI mode — fails on Cargo.lock drift
 rtk cargo fmt --all -- --check              # enforced in CI
 rtk cargo clippy --workspace --all-targets --all-features -- -D warnings   # enforced in CI (warnings = errors)
@@ -76,7 +77,7 @@ Notes:
 
 ## Rust-native invariant (critical — verify, don't assume)
 
-The constraint is scoped to the **zero-dependency core crate** (today `intent-driven-development`/`idd`; in the target `rusty-idd` workspace, `crates/core`): **Rust-native, std-only, no network calls** — its `[dependencies]` table stays empty. This is a design principle (`README.md` → "Design principles"), not an accident. The **other crates are allowed their researched dependencies** — `openspec-tui` already uses ratatui/crossterm/serde, and the ported spec engine will use comrak/serde_norway/clap. What never changes: no crate's `src/` may contain non-Rust source, and the core crate stays dependency-free. The invariant is the *core crate*, not the whole workspace.
+The constraint is scoped to the **zero-dependency core crate** — `crates/core` (`rusty-idd-core`, formerly `intent-driven-development`): **Rust-native, std-only, no network calls** — its `[dependencies]` table stays empty. This is a design principle (`README.md` → "Design principles"), not an accident. The **other crates carry their researched dependencies** — `crates/tui` uses ratatui/crossterm, `crates/spec` uses comrak/serde, `crates/cli` uses clap. What never changes: no crate's `src/` may contain non-Rust source, and the core crate stays dependency-free. The invariant is the *core crate*, not the whole workspace.
 
 **Guard against language/dependency drift on every change:**
 

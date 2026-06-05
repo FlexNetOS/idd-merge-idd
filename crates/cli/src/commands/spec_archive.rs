@@ -11,7 +11,7 @@
 
 use std::path::{Path, PathBuf};
 
-use openspec_runner::data::discover_specs;
+use rusty_idd_runner::data::discover_specs;
 use rusty_idd_spec::archive::{archive_specs, SpecMerge};
 
 /// Run `spec archive`. Returns a process exit code.

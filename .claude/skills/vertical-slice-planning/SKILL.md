@@ -41,7 +41,7 @@ Fill the template below completely. Migration intent and rollback are not option
 Record the slice as an `idd task` so it can drive a single PR/issue:
 ```bash
 # from the workspace root (idd bin in crates/core)
-rtk cargo run --bin idd -- task --out <ws>/AI_MERGE/07_tasks --kind <kind> --title "<one-line slice title>"
+rtk cargo run --bin rusty-idd -- task --out <ws>/AI_MERGE/07_tasks --kind <kind> --title "<one-line slice title>"
 ```
 
 ## Slice template — write to `_workspace/02_planner_slice.md`

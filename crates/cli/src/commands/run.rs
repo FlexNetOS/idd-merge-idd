@@ -8,8 +8,8 @@
 use std::path::Path;
 
 use clap::Args;
-use openspec_runner::config::{TuiConfig, CONFIG_PATH};
-use openspec_runner::runner::{start_apply, start_implementation, ImplUpdate};
+use rusty_idd_runner::config::{TuiConfig, CONFIG_PATH};
+use rusty_idd_runner::runner::{start_apply, start_implementation, ImplUpdate};
 
 #[derive(Args)]
 pub struct RunArgs {
