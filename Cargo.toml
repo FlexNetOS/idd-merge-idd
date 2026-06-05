@@ -1,16 +1,17 @@
 # rusty-idd — Cargo workspace.
 #
-# Members live under crates/ (slices 2-3 relocated them):
-#   crates/core  — the std-only, zero-dependency idd crate (was intent-driven-development)
-#   crates/tui   — the ratatui OpenSpec TUI (was openspec-tui-main)
-# Slice 4 adds crates/spec (the ported OpenSpec lifecycle engine); a later slice
-# extracts crates/cli and (optionally) crates/runner.
+# Members under crates/:
+#   crates/core    — the std-only, zero-dependency idd crate (was intent-driven-development)
+#   crates/runner  — the non-UI execution layer (runner/config/data, split out of the tui)
+#   crates/tui     — the ratatui OpenSpec TUI; depends on crates/runner
+# A later slice adds crates/spec (the ported OpenSpec lifecycle engine) and crates/cli.
 #
-# resolver = "3" is required because members mix editions (core 2021 + tui 2024);
+# resolver = "3" is required because members mix editions (core 2021 + tui/runner 2024);
 # the virtual root has no package.edition to infer it from, so it is set explicitly.
 [workspace]
 resolver = "3"
 members = [
     "crates/core",
+    "crates/runner",
     "crates/tui",
 ]

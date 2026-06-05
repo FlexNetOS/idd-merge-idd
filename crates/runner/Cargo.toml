@@ -1,0 +1,19 @@
+[package]
+name = "openspec-runner"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "Task-execution engine and OpenSpec data layer for openspec-tui / rusty-idd"
+
+[lib]
+name = "openspec_runner"
+path = "src/lib.rs"
+
+[dependencies]
+chrono = "0.4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+
+[dev-dependencies]
+tempfile = "3"

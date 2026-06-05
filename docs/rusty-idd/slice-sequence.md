@@ -11,8 +11,8 @@ The build order the `merge-orchestrator` harness executes (one slice per loop of
 | 3a | **CI relocate + upgrade** (`→ root .github/`, workspace-aware + drift gate) | structural | ✅ done | GitHub runs it; drift+build+test blocking; fmt/clippy non-blocking | restore old path |
 | 3b | **Fix tui CWD-race flake** (serialize `set_current_dir` tests) | fix | ✅ done | `cargo test --workspace` green multi-threaded | revert data.rs |
 | 5 | **fmt + clippy cleanup** (format the tree; flip CI fmt/clippy to blocking) | refactor | ✅ done | `cargo fmt --all --check` + `clippy --workspace -D warnings` clean; CI blocking | — |
-| 4 | **Split `crates/tui` → `crates/runner` + `crates/tui`** | refactor | ⏳ next | runner is a lib both cli + tui consume; `--workspace` green | re-merge |
-| 6 | **Port lifecycle → `crates/spec`** | lifecycle-port | ⏳ next big one | golden-fixture conformance vs `bunx openspec` (`validate --json`, `archive`) | drop `crates/spec` |
+| 4 | **Split `crates/tui` → `crates/runner` + `crates/tui`** | refactor | ✅ done | `crates/runner` lib (runner/config/data); tui depends on it; `--workspace` green | re-merge |
+| 6 | **Port lifecycle → `crates/spec`** | lifecycle-port | ⏳ next (the crux) | golden-fixture conformance vs `bunx openspec` (`validate --json`, `archive`) | drop `crates/spec` |
 | 7 | **Unified `crates/cli`** | migration | ⏳ | parity: each `rusty-idd <verb>` matches the prior per-tool behavior | keep old entrypoints |
 | 8 | **Retire old entrypoints + oracle** | migration | ⏳ | parity proven for all verbs; no Node in shipped product | restore shims |
 

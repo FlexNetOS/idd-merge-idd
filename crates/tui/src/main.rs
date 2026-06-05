@@ -1,8 +1,10 @@
 mod app;
-mod config;
-mod data;
-mod runner;
 mod ui;
+
+// The execution layer now lives in the `openspec-runner` crate. Re-export its
+// modules at the crate root so existing `crate::config` / `crate::data` /
+// `crate::runner` paths in app.rs and ui.rs keep resolving unchanged.
+use openspec_runner::{config, data, runner};
 
 use std::io;
 

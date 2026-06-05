@@ -15,6 +15,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 2026-06-04 | Add `lifecycle-porter` agent + `lifecycle-porting` skill; generalize `drift-check.sh` (layout-agnostic, core-crate dep check); add epic/slice-type layer to planner+orchestrator; re-scope Rust-native invariant to the core crate | agents, skills, CLAUDE.md | Research found the harness was aimed at the current 2-crate snapshot; retargeted it to *build rusty-idd* (workspace restructure + Node→Rust lifecycle port) |
 | 2026-06-04 | Execute epic slices 2–3: `intent-driven-development`→`crates/core`, `openspec-tui-main`→`crates/tui`; relocate+upgrade CI to root `.github/` (workspace-aware, drift gate, fmt/clippy non-blocking); fix tui CWD-race flake; refresh layout docs | repo layout, CI, CLAUDE.md, docs/rusty-idd | Continue the rusty-idd unification; the drift gate's retarget proved out (root lock 234 pkgs, core still zero-dep) |
 | 2026-06-04 | Slice 5: fmt + clippy cleanup across both crates; flip CI fmt/clippy to blocking | both crates, CI | Workspace now fully lint-clean; CI fully enforcing |
+| 2026-06-04 | Slice 4: split `crates/tui` → `crates/runner` (runner/config/data lib) + `crates/tui` (UI); tui re-exports runner modules | crates, Cargo manifests | So the future `crates/cli` can reuse the execution layer without ratatui |
 
 ## Session start protocol (mandatory)
 
@@ -33,7 +34,8 @@ This **is** a Cargo workspace now (the rusty-idd unification, in progress — se
 | Path | Kind | What it is |
 |------|------|-----------|
 | `crates/core/` | Rust crate, edition 2021 (`idd` bin), **zero-dep / std-only** | The core CLI (was `intent-driven-development`). Generates the AI-merge **control plane** (markdown + JSON contracts, CI gates, agent templates). Not an AI agent — it produces artifacts agents execute. |
-| `crates/tui/` | Rust crate, edition 2024 (`openspec-tui`) | ratatui/crossterm TUI (was `openspec-tui-main`) that browses OpenSpec changes and drives an external agent CLI to implement `tasks.md`, with stall detection and dependency-ordered batch runs. |
+| `crates/runner/` | Rust lib, edition 2024 (`openspec_runner`) | The non-UI execution layer split out of the TUI: `runner` (spawn an agent CLI, stream progress, stall detection, batch), `data` (parse `tasks.md`, list changes), `config` (`TuiConfig`). Consumed by `crates/tui` and (later) `crates/cli`. |
+| `crates/tui/` | Rust crate, edition 2024 (`openspec-tui`) | ratatui/crossterm TUI (was `openspec-tui-main`); the UI layer (`app`, `ui`, `main`). Depends on `crates/runner` for execution; re-exports its modules so `crate::config`/`crate::data`/`crate::runner` resolve. |
 | `crates/spec/` | (planned, slice 6) | The OpenSpec lifecycle engine ported to Rust — see `docs/rusty-idd/spec-engine-design.md`. |
 | `intent-driven-template/` | **Not code** — template assets | OpenSpec scaffolding: `.agents/`, `.opencode/`, `openspec/` schema/templates. The lifecycle being ported into `crates/spec`. |
 
@@ -41,9 +43,11 @@ This **is** a Cargo workspace now (the rusty-idd unification, in progress — se
 
 CLI dispatch lives in `crates/core/src/cli.rs` (`run(args)` matches subcommands: `init`, `scan`, `plan`, `task`, `validate`, `manifest`, `github`). Flags are parsed by a hand-rolled `parse_flags` (`--k v` and `--k=v`) — no `clap` here (the future unified `crates/cli` will use clap). The pipeline is `scanner` (walks a repo → `RepoInventory` in `model.rs`) → `planner` (renders inventories + merge plan + tasks) → `templates` (static `&str` bodies) → `validation` (severity-graded; **critical findings make `idd validate` exit non-zero**) → `manifest` (deterministic `.idd/MANIFEST.tsv`). `env_contract.rs` detects env/secret keys. All file writes go through `fs_utils::write_string_preserving_existing` (**backup-on-overwrite**).
 
-### `crates/tui` (`openspec-tui`) architecture
+### `crates/tui` (`openspec-tui`) + `crates/runner` architecture
 
-`main.rs` boots the terminal; `app.rs` holds the screen state machine; `ui.rs` renders; `data.rs` parses `tasks.md` progress; `config.rs` holds `TuiConfig` (persisted to `openspec/tui-config.yaml`); `runner.rs` spawns the external agent in a worker thread, streams `ImplUpdate` over an mpsc channel, kills children via a shared `Arc<Mutex<Option<Child>>>` + `AtomicBool` cancel flag, and stalls after `STALL_THRESHOLD` (3) no-progress runs. Logic is covered by inline `#[cfg(test)]` modules. (Tests that mutate CWD via `set_current_dir` are serialized by a `CWD_GUARD` mutex in `data.rs` — process-global CWD races otherwise.)
+**`crates/tui`** is the UI layer: `main.rs` boots the terminal; `app.rs` holds the screen state machine; `ui.rs` renders. It depends on **`crates/runner`** for everything non-UI and re-exports its modules at the crate root (so `crate::config`/`crate::data`/`crate::runner` still resolve in `app.rs`/`ui.rs`).
+
+**`crates/runner`** (`openspec_runner` lib) is the execution layer: `data.rs` parses `tasks.md` progress and lists changes; `config.rs` holds `TuiConfig` (persisted to `openspec/tui-config.yaml`); `runner.rs` spawns the external agent in a worker thread, streams `ImplUpdate` over an mpsc channel, kills children via a shared `Arc<Mutex<Option<Child>>>` + `AtomicBool` cancel flag, and stalls after `STALL_THRESHOLD` (3) no-progress runs. Logic is covered by inline `#[cfg(test)]` modules. (CWD-mutating tests are serialized by a `CWD_GUARD` mutex in `data.rs`.)
 
 ## Build, test, lint
 
