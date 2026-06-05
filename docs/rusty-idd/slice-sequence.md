@@ -13,7 +13,7 @@ The build order the `merge-orchestrator` harness executes (one slice per loop of
 | 5 | **fmt + clippy cleanup** (format the tree; flip CI fmt/clippy to blocking) | refactor | ✅ done | `cargo fmt --all --check` + `clippy --workspace -D warnings` clean; CI blocking | — |
 | 4 | **Split `crates/tui` → `crates/runner` + `crates/tui`** | refactor | ✅ done | `crates/runner` lib (runner/config/data); tui depends on it; `--workspace` green | re-merge |
 | 6 | **Port lifecycle → `crates/spec`** | lifecycle-port | ✅ done | semantic golden conformance (parse→merge→emit→re-parse == oracle `03`); validate JSON matches `04`/`05`; transactional merge | drop `crates/spec` |
-| 7 | **Unified `crates/cli`** | migration | ⏳ | parity: each `rusty-idd <verb>` matches the prior per-tool behavior | keep old entrypoints |
+| 7 | **Unified `crates/cli`** (`rusty-idd`) | migration | ✅ done | `rusty-idd scan` byte-identical to `idd scan`; spec validate/archive + headless run + tui launcher; old bins still work | keep old entrypoints |
 | 8 | **Retire old entrypoints + oracle** | migration | ⏳ | parity proven for all verbs; no Node in shipped product | restore shims |
 
 ## Notes

@@ -3,14 +3,16 @@
 # Members under crates/:
 #   crates/core    — the std-only, zero-dependency idd crate (was intent-driven-development)
 #   crates/runner  — the non-UI execution layer (runner/config/data, split out of the tui)
-#   crates/tui     — the ratatui OpenSpec TUI; depends on crates/runner
-# A later slice adds crates/spec (the ported OpenSpec lifecycle engine) and crates/cli.
+#   crates/tui     — the ratatui OpenSpec TUI (lib + bin); depends on crates/runner
+#   crates/spec    — the ported OpenSpec lifecycle engine (parse / merge / validate)
+#   crates/cli     — the unified `rusty-idd` clap binary wiring the crates together
 #
 # resolver = "3" is required because members mix editions (core 2021 + tui/runner 2024);
 # the virtual root has no package.edition to infer it from, so it is set explicitly.
 [workspace]
 resolver = "3"
 members = [
+    "crates/cli",
     "crates/core",
     "crates/runner",
     "crates/spec",

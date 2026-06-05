@@ -6,6 +6,17 @@ license = "MIT"
 description = "A terminal UI for browsing and implementing OpenSpec changes"
 repository = "https://github.com/neosam/openspec-tui"
 
+# Library: the TUI implementation, callable as `openspec_tui::run()` (consumed
+# by the standalone `openspec-tui` bin AND by `rusty-idd tui`).
+[lib]
+name = "openspec_tui"
+path = "src/lib.rs"
+
+# Binary: a thin shim that calls into the library (deprecate-before-delete).
+[[bin]]
+name = "openspec-tui"
+path = "src/main.rs"
+
 [dependencies]
 # The UI layer. The execution layer (runner/config/data) and its serde/chrono
 # deps moved to the openspec-runner crate.
