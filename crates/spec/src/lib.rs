@@ -11,10 +11,13 @@
 //!   is left to the CLI).
 //! - [`schema`] is the serde_norway edge: loads `schema.yaml` into the artifact
 //!   DAG and answers `next_ready` / `is_archivable` over a `done` set.
+//! - [`adr`] parses Architecture Decision Records and computes the in-force set
+//!   via the supersession graph + the next sequence number.
 //!
-//! Still deferred (later slices): `scaffold/` (minijinja templates) and `adr/`.
+//! Still deferred (later slice): `scaffold/` (minijinja templates).
 //! The `cli/` edge lives in `crates/cli`.
 
+pub mod adr;
 pub mod archive;
 pub mod model;
 pub mod parse;
@@ -22,6 +25,7 @@ pub mod schema;
 pub mod validate;
 
 // Convenience re-exports of the most-used items.
+pub use adr::{parse_adr, Adr, AdrSet, AdrStatus};
 pub use model::{apply_delta, Delta, DeltaOp, MergeError, Requirement, Scenario, SpecDoc};
 pub use parse::{emit_spec, parse_delta, parse_spec};
 pub use schema::{load_schema, Artifact, Schema, SchemaError};
