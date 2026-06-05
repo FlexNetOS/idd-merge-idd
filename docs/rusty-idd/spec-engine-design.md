@@ -259,8 +259,13 @@ blank-line edge cases.
   cleaner but must reproduce formatting from scratch. Prototype (a) first against
   fixture `03`; fall back to (b) if arena splicing fights the borrow checker.
 - **Op-evaluation order** (RENAMED then MODIFIED of the same req in one delta):
-  evaluate-against-base vs sequential is `unverified`. Add an oracle probe in
-  Slice 4 before finalizing `merge.rs`.
+  ✅ **resolved** (`oracle-verified`, U5 probe of `@fission-ai/openspec@1.4.1`).
+  The oracle applies **RENAME first**: a delta that renames `X→Y` and modifies
+  the same requirement must reference the NEW header `Y` in MODIFIED; referencing
+  the old `X` aborts ("when a rename exists, MODIFIED must reference the new
+  header ..."). `merge.rs` applies RENAMED ops before ADDED/MODIFIED/REMOVED and
+  rejects old-name references via `MergeError::RenamedOldNameReferenced`.
+  Fixtures `06`/`07`/`08`; tests in `model/merge.rs` + `tests/archive_golden.rs`.
 - **REMOVED Reason/Migration** enforcement is `schema-only`; decide whether to
   hard-error or content-lint. Default to content-lint (matches observed merge).
 - **serde_norway model leakage.** Keep YAML deser structs in `schema/`, mapped

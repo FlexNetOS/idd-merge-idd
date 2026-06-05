@@ -1,7 +1,8 @@
 //! The delta-merge algorithm (the crux). Pure: `SpecDoc` + `Delta` in, a new
 //! `SpecDoc` (or a `MergeError`) out — no comrak, no I/O.
 //!
-//! Faithful to the `oracle-verified` archive semantics (contract §3, design §5):
+//! Faithful to the `oracle-verified` archive semantics (contract §3, design §5,
+//! §7):
 //! - **ADDED**  — name must be absent; append to the end.
 //! - **MODIFIED**— name must exist; replace the WHOLE requirement in place
 //!   (keep index, discard old scenarios). NOT a scenario merge.
@@ -9,11 +10,17 @@
 //! - **RENAMED** — `from` must exist, `to` must be absent; change the name in
 //!   place (keep index, body, scenarios).
 //!
-//! **Transactional.** Every op's precondition is validated against the *base*
-//! first; on any failure nothing is mutated and the original `SpecDoc` is left
-//! untouched (matching the CLI's `"Aborted. No files were changed."`).
+//! **Op-evaluation order (RENAME-first).** When a delta renames `X→Y` and
+//! modifies/removes the same requirement, the oracle requires the MODIFIED/
+//! REMOVED block to reference the NEW name `Y`; referencing the old `X` aborts.
+//! So preconditions are checked against the post-rename namespace and RENAMED
+//! ops apply before ADDED/MODIFIED/REMOVED.
+//!
+//! **Transactional.** Every op's precondition is validated first; on any failure
+//! nothing is mutated and the original `SpecDoc` is left untouched (matching the
+//! CLI's `"Aborted. No files were changed."`).
 
-use super::{DeltaOp, Requirement, SpecDoc};
+use super::{normalize_name, DeltaOp, SpecDoc};
 
 /// A precondition failure during merge. The messages mirror the Node CLI's
 /// abort messages so the CLI slice can surface them faithfully.
@@ -28,39 +35,117 @@ pub enum MergeError {
     /// RENAMED whose `to` name already exists (would collide).
     #[error("RENAMED failed for header \"### Requirement: {name}\" - already exists")]
     RenameTargetExists { name: String },
+    /// A MODIFIED/REMOVED that references the OLD name of a requirement renamed
+    /// in the SAME delta. The oracle requires the NEW (post-rename) header
+    /// (`oracle-verified`, U5 probe of `@fission-ai/openspec@1.4.1`: archiving
+    /// such a delta aborts with "when a rename exists, MODIFIED must reference
+    /// the NEW header ...").
+    #[error(
+        "{op} failed for header \"### Requirement: {old}\" - when a rename exists, {op} must reference the new header \"### Requirement: {new}\""
+    )]
+    RenamedOldNameReferenced {
+        op: &'static str,
+        old: String,
+        new: String,
+    },
 }
 
-/// Apply a delta to a base spec, transactionally. All ops are validated against
-/// `base` before any mutation; on any error the function returns `Err` and
-/// `base` is observably unchanged (it is taken by reference; only a working
-/// clone is mutated).
+/// Apply a delta to a base spec, transactionally. All ops are validated first;
+/// on any error the function returns `Err` and `base` is observably unchanged
+/// (it is taken by reference; only a working clone is mutated).
+///
+/// **Op-evaluation order (`oracle-verified`, design §7, U5 probe).** RENAMED ops
+/// are applied **before** ADDED/MODIFIED/REMOVED, so a delta that renames `X→Y`
+/// and modifies the same requirement must reference the NEW name `Y` in its
+/// MODIFIED block (referencing the old `X` aborts). This matches
+/// `@fission-ai/openspec@1.4.1`.
 pub fn apply_delta(base: &SpecDoc, delta: &super::Delta) -> Result<SpecDoc, MergeError> {
-    // 1. Validate EVERY precondition against the base state first. This is the
-    //    transactional guarantee: a mid-merge failure mutates nothing.
+    // 1. Validate EVERY precondition first (rename-aware). Transactional: a
+    //    mid-merge failure mutates nothing.
     validate_preconditions(base, delta)?;
 
-    // 2. Apply against a working clone. Preconditions held against base; the
-    //    ops below cannot fail.
+    // 2. Apply RENAMED first so the other ops resolve against the post-rename
+    //    namespace (oracle semantics).
     let mut out = base.clone();
     for op in &delta.ops {
-        apply_one(&mut out, op);
+        if let DeltaOp::Renamed { from, to } = op {
+            if let Some(i) = out.position_of(from) {
+                out.requirements[i].name = to.clone();
+            }
+        }
+    }
+
+    // 3. Then ADDED/MODIFIED/REMOVED, in delta order. Preconditions held, so
+    //    these lookups cannot legitimately miss.
+    for op in &delta.ops {
+        match op {
+            DeltaOp::Renamed { .. } => {} // already applied above
+            DeltaOp::Added(req) => out.requirements.push(req.clone()),
+            DeltaOp::Modified(req) => {
+                if let Some(i) = out.position_of(&req.name) {
+                    out.requirements[i] = req.clone();
+                }
+            }
+            DeltaOp::Removed { name, .. } => {
+                if let Some(i) = out.position_of(name) {
+                    out.requirements.remove(i);
+                }
+            }
+        }
     }
     Ok(out)
 }
 
-/// Validate all op preconditions against the (immutable) base state.
+/// Validate all op preconditions, rename-aware: MODIFIED/REMOVED/ADDED are
+/// checked against the **post-rename** namespace (the oracle applies renames
+/// first). Referencing the old name of a same-delta rename is a distinct error.
 fn validate_preconditions(base: &SpecDoc, delta: &super::Delta) -> Result<(), MergeError> {
+    // Index this delta's renames (old -> new).
+    let renames: Vec<(&str, &str)> = delta
+        .ops
+        .iter()
+        .filter_map(|op| match op {
+            DeltaOp::Renamed { from, to } => Some((from.as_str(), to.as_str())),
+            _ => None,
+        })
+        .collect();
+
+    // If `name` is the OLD side of a rename in this delta, return its NEW name.
+    let renamed_from = |name: &str| -> Option<&str> {
+        let n = normalize_name(name);
+        renames
+            .iter()
+            .find(|(f, _)| normalize_name(f) == n)
+            .map(|(_, t)| *t)
+    };
+    // Is `name` a rename TARGET (new name) created by this delta?
+    let is_rename_target = |name: &str| -> bool {
+        let n = normalize_name(name);
+        renames.iter().any(|(_, t)| normalize_name(t) == n)
+    };
+    // Does a requirement with `name` exist once this delta's renames are applied?
+    let exists_after_rename = |name: &str| -> bool {
+        (base.contains(name) && renamed_from(name).is_none()) || is_rename_target(name)
+    };
+
     for op in &delta.ops {
         match op {
             DeltaOp::Added(req) => {
-                if base.contains(&req.name) {
+                if exists_after_rename(&req.name) {
                     return Err(MergeError::AlreadyExists {
                         name: req.name.clone(),
                     });
                 }
             }
             DeltaOp::Modified(req) => {
-                if !base.contains(&req.name) {
+                if let Some(new) = renamed_from(&req.name) {
+                    return Err(MergeError::RenamedOldNameReferenced {
+                        op: "MODIFIED",
+                        old: req.name.clone(),
+                        new: new.to_string(),
+                    });
+                }
+                if !exists_after_rename(&req.name) {
                     return Err(MergeError::NotFound {
                         op: "MODIFIED",
                         name: req.name.clone(),
@@ -68,7 +153,14 @@ fn validate_preconditions(base: &SpecDoc, delta: &super::Delta) -> Result<(), Me
                 }
             }
             DeltaOp::Removed { name, .. } => {
-                if !base.contains(name) {
+                if let Some(new) = renamed_from(name) {
+                    return Err(MergeError::RenamedOldNameReferenced {
+                        op: "REMOVED",
+                        old: name.clone(),
+                        new: new.to_string(),
+                    });
+                }
+                if !exists_after_rename(name) {
                     return Err(MergeError::NotFound {
                         op: "REMOVED",
                         name: name.clone(),
@@ -89,38 +181,6 @@ fn validate_preconditions(base: &SpecDoc, delta: &super::Delta) -> Result<(), Me
         }
     }
     Ok(())
-}
-
-/// Apply a single op to the working doc. Preconditions are assumed already
-/// validated against base, so the lookups here cannot legitimately miss; if a
-/// later op references a name a previous op created/removed the `position_of`
-/// fallback keeps the apply infallible (faithful "validate-against-base" model,
-/// design §5).
-fn apply_one(out: &mut SpecDoc, op: &DeltaOp) {
-    match op {
-        DeltaOp::Added(req) => out.requirements.push(req.clone()),
-        DeltaOp::Modified(req) => {
-            if let Some(i) = out.position_of(&req.name) {
-                out.requirements[i] = req.clone();
-            }
-        }
-        DeltaOp::Removed { name, .. } => {
-            if let Some(i) = out.position_of(name) {
-                out.requirements.remove(i);
-            }
-        }
-        DeltaOp::Renamed { from, to } => {
-            if let Some(i) = out.position_of(from) {
-                rename_in_place(&mut out.requirements[i], to);
-            }
-        }
-    }
-}
-
-/// Change only the heading text; body and scenarios are preserved verbatim.
-/// Op matching uses `normalize_name`, but storage keeps the authored `to` text.
-fn rename_in_place(req: &mut Requirement, to: &str) {
-    req.name = to.to_string();
 }
 
 #[cfg(test)]
@@ -318,5 +378,89 @@ mod tests {
         ]);
         assert!(apply_delta(&b, &d).is_err());
         assert_eq!(b, base()); // the ADDED did not leak through
+    }
+
+    // ---- RENAME + MODIFY of the SAME requirement in one delta ----
+    // Pinned against `@fission-ai/openspec@1.4.1` (U5 oracle probe, design §7):
+    // RENAMED applies first, so MODIFIED must reference the NEW (post-rename)
+    // header; referencing the OLD name aborts.
+
+    #[test]
+    fn rename_then_modify_new_name_succeeds_in_place() {
+        // Delta order is MODIFIED-before-RENAMED (matching the delta section
+        // order ## MODIFIED ... ## RENAMED), yet rename is applied first.
+        let d = Delta::new(vec![
+            DeltaOp::Modified(req(
+                "Exported file naming", // the NEW name
+                "The system SHALL name files using the set name AND timestamp.",
+                &["fname2"],
+            )),
+            DeltaOp::Renamed {
+                from: "Export filename".into(),
+                to: "Exported file naming".into(),
+            },
+        ]);
+        let out = apply_delta(&base(), &d).unwrap();
+        // position 3 keeps its slot; name is the rename target; body is modified.
+        assert_eq!(out.requirements.len(), 4);
+        assert_eq!(out.requirements[3].name, "Exported file naming");
+        assert!(out.requirements[3].body[0].text.contains("AND timestamp"));
+        assert_eq!(out.requirements[3].scenarios.len(), 1);
+        assert_eq!(out.requirements[3].scenarios[0].name, "fname2");
+    }
+
+    #[test]
+    fn rename_with_modify_referencing_old_name_aborts() {
+        // MODIFIED references the OLD name while a rename of it exists: abort,
+        // no mutation, with the rename-reference error (matches the oracle).
+        let b = base();
+        let d = Delta::new(vec![
+            DeltaOp::Modified(req(
+                "Export filename", // the OLD name — illegal when a rename exists
+                "The system SHALL name files differently.",
+                &["x"],
+            )),
+            DeltaOp::Renamed {
+                from: "Export filename".into(),
+                to: "Exported file naming".into(),
+            },
+        ]);
+        let err = apply_delta(&b, &d).unwrap_err();
+        assert_eq!(
+            err,
+            MergeError::RenamedOldNameReferenced {
+                op: "MODIFIED",
+                old: "Export filename".into(),
+                new: "Exported file naming".into(),
+            }
+        );
+        assert_eq!(b, base()); // transactional: nothing changed
+    }
+
+    #[test]
+    fn rename_with_remove_referencing_old_name_aborts() {
+        // The same rule applies to REMOVED referencing a renamed-away name.
+        let b = base();
+        let d = Delta::new(vec![
+            DeltaOp::Removed {
+                name: "Export filename".into(),
+                reason: None,
+                migration: None,
+            },
+            DeltaOp::Renamed {
+                from: "Export filename".into(),
+                to: "Exported file naming".into(),
+            },
+        ]);
+        let err = apply_delta(&b, &d).unwrap_err();
+        assert_eq!(
+            err,
+            MergeError::RenamedOldNameReferenced {
+                op: "REMOVED",
+                old: "Export filename".into(),
+                new: "Exported file naming".into(),
+            }
+        );
+        assert_eq!(b, base());
     }
 }
