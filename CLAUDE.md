@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Goal:** Build **rusty-idd** — unify the three directors into one Rust-native Cargo workspace — by turning each merge/migration intent into a reviewable, Rust-native slice with full PR evidence.
 
-**Trigger:** For any merge/migration/unification dev operation in this repo — building rusty-idd, the workspace restructure, porting the OpenSpec lifecycle to Rust, scanning repos, sequencing the epic, planning a slice, implementing a migration, QA-ing a change, checking Rust-native drift, or assembling merge-PR evidence (and follow-ups: re-run, refine the plan/epic, redo only the implementation/QA/lifecycle-port) — use the `merge-orchestrator` skill. Simple one-off questions may be answered directly.
+**Trigger:** For any merge/migration/unification dev operation in this repo — building rusty-idd, the workspace restructure, porting the OpenSpec lifecycle to Rust, scanning repos, sequencing the epic, planning a slice, implementing a migration, QA-ing a change, checking Rust-native drift, or assembling merge-PR evidence (and follow-ups: re-run, refine the plan/epic, redo only the implementation/QA/lifecycle-port) — use the `merge-orchestrator` skill. For **autonomous, multi-slice, or cross-session runs** — working the slice backlog one item per cycle, running unattended, resuming after a handoff, or self-restarting with `/new` — use the `idd-merge-loop` skill (the durable-backlog + continuity layer on top of the orchestrator; pairs with `session-relay` + the `continuity-steward` agent). Simple one-off questions may be answered directly.
 
 **Change history:**
 | Date | Change | Target | Reason |
@@ -20,6 +20,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 2026-06-04 | Slice 7: build `crates/cli` (`rusty-idd`) unifying core (delegated, byte-identical) + spec (validate/archive/show + FS edge) + headless run + tui; split `crates/tui` into lib+bin so the loop is callable | new crate, tui lib split | The unified superflow binary; old `idd`/`openspec-tui` bins kept until slice 8 |
 | 2026-06-04 | Slice 8 (final): retire the `idd` and `openspec-tui` bins (core/tui are now libs); point docs/run-commands at `rusty-idd`; confirm zero Node in the product | core/tui manifests, docs | rusty-idd unification epic complete — one Rust-native binary |
 | 2026-06-04 | Package/lib rename for coherence: `intent-driven-development`→`rusty-idd-core`, `openspec-runner`→`rusty-idd-runner`, `openspec-tui`→`rusty-idd-tui` (libs `rusty_idd_*`); fix slice-8-stale `--bin idd` refs in skills | all crate manifests + code refs + skills | The whole workspace is now `rusty-idd-*`; directory names unchanged |
+| 2026-06-05 | "Upgrades + fixes" epic via merge-orchestrator (PRs #13–#21): U1 flake.nix retarget, U2 `validate --strict` summary/exit reconcile, U3 runner `serde_yaml`→`serde_norway`, U4 `archive --no-validate/-y` wiring, U5 RENAME+MODIFY op-order pinned to oracle (found+fixed an inverted merge), U6 byte-exact `emit_spec`, U7/U8/U9 deferred spec edges `schema`/`adr`/`scaffold` (`spec status/next/adr/new/scaffold`) | crates/{cli,spec,runner,tui}, docs/rusty-idd, fixtures 06–08 | Post-unification maintenance + completion of the designed-but-deferred lifecycle engine; every slice gate-green |
+| 2026-06-05 | Add autonomous-operation layer: `idd-merge-loop` skill (durable backlog, one slice/cycle, commit-per-cycle, handoff at budget) + `session-relay` skill (HAND OFF/RESUME) + `continuity-steward` agent + `_workspace/.gitignore` (commit only continuity files) + external runner `scripts/ralph-idd.sh` (opt-in `IDD_APPLY=1`) | new agent + 2 skills + runner, CLAUDE.md | Harness upgrade kit: run the merge/port work unattended + resume cold across sessions/restarts with zero loss |
 
 ## Session start protocol (mandatory)
 
@@ -96,3 +98,14 @@ The constraint is scoped to the **zero-dependency core crate** — `crates/core`
 - Never commit real secrets. `idd` maps secret *references*, it does not materialize values — use `.env.example` / `.env.schema.example.json` / CI secret backends.
 - Every PR that changes the control plane updates the relevant `AI_MERGE/` record and includes the required evidence (build/test/lint/secret-scan results, migration note, rollback path, manifest update or justification).
 - If two agents conflict, stop and record it in `AI_MERGE/05_conflict_risk_register.md` before continuing.
+
+## Harness: autonomous / resumable operation (upgrade path)
+
+This repo's harness can be upgraded to **autonomous, resumable, self-restarting** operation:
+a durable on-disk backlog → one item per cycle → hand off to a fresh session at a cycle budget
+→ optional fully-unattended self-restart with a clean context each cycle ("/new" effect). Truth
+lives on disk (backlog + checkpoints + commits) so any restart resumes cold with zero loss.
+
+- Generic pattern + templates: `~/Desktop/meta/HARNESS-UPGRADE-KIT.md`
+- Tailored kit for THIS repo:  `~/Desktop/meta/harness_hub/upgrade-kits/idd-merge-idd.md`
+- Integrates with your existing skills: merge-orchestrator, merge-verification, pr-evidence-bundle (the loop drives them per cycle).
