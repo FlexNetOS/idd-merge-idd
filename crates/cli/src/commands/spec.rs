@@ -83,6 +83,9 @@ fn cmd_validate(file: &Path, json: bool, strict: bool) -> i32 {
     let report = validate_spec(&id, &src);
 
     if json {
+        // The JSON payload mirrors the oracle shape exactly and is strict-blind
+        // (the oracle's `valid`/`totals` count ERRORs only). `--strict` affects
+        // only the human summary and the process exit code, never this payload.
         match serde_json::to_string_pretty(&report) {
             Ok(s) => println!("{s}"),
             Err(e) => {
@@ -91,7 +94,7 @@ fn cmd_validate(file: &Path, json: bool, strict: bool) -> i32 {
             }
         }
     } else {
-        print_human_report(&report);
+        print_human_report(&report, strict);
     }
 
     if report_failed(&report, strict) {
@@ -101,18 +104,34 @@ fn cmd_validate(file: &Path, json: bool, strict: bool) -> i32 {
     }
 }
 
-/// A report fails when any item has an ERROR, or (under `--strict`) a WARNING.
-fn report_failed(report: &Report, strict: bool) -> bool {
-    report.items.iter().any(|item| {
-        item.issues.iter().any(|issue| {
-            issue.level == IssueLevel::Error || (strict && issue.level == IssueLevel::Warning)
-        })
+/// Whether a single item fails: any ERROR, or (under `--strict`) any WARNING.
+/// The strict-aware predicate the human summary and the exit code share, so they
+/// can never disagree (the bug this slice fixes).
+fn item_failed(item: &rusty_idd_spec::validate::Item, strict: bool) -> bool {
+    item.issues.iter().any(|issue| {
+        issue.level == IssueLevel::Error || (strict && issue.level == IssueLevel::Warning)
     })
 }
 
-fn print_human_report(report: &Report) {
+/// A report fails when any item fails.
+fn report_failed(report: &Report, strict: bool) -> bool {
+    report.items.iter().any(|item| item_failed(item, strict))
+}
+
+fn print_human_report(report: &Report, strict: bool) {
+    let mut passed = 0u64;
+    let mut failed = 0u64;
     for item in &report.items {
-        let status = if item.valid { "VALID" } else { "INVALID" };
+        // Strict-aware status: under --strict a WARNING-only item reads INVALID,
+        // consistent with the exit code (without --strict it stays VALID, as the
+        // JSON payload reports). This is what reconciles summary with exit code.
+        let failed_item = item_failed(item, strict);
+        if failed_item {
+            failed += 1;
+        } else {
+            passed += 1;
+        }
+        let status = if failed_item { "INVALID" } else { "VALID" };
         println!("{} [{}] {}", status, item.item_type, item.id);
         for issue in &item.issues {
             let level = match issue.level {
@@ -122,10 +141,16 @@ fn print_human_report(report: &Report) {
             println!("  {level} {}: {}", issue.path, issue.message);
         }
     }
-    let t = &report.summary.totals;
     println!(
-        "Summary: {} item(s), {} passed, {} failed.",
-        t.items, t.passed, t.failed
+        "Summary: {} item(s), {} passed, {} failed.{}",
+        report.items.len(),
+        passed,
+        failed,
+        if strict {
+            " (strict: WARNINGs count as failures)"
+        } else {
+            ""
+        }
     );
 }
 
