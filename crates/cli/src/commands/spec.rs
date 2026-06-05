@@ -57,6 +57,31 @@ pub enum SpecCommand {
         #[command(subcommand)]
         command: crate::commands::spec_adr::AdrCommand,
     },
+    /// Render an artifact stub (proposal/spec/design/adr/tasks) to stdout.
+    Scaffold {
+        /// Artifact to render: proposal | spec | design | adr | tasks.
+        artifact: String,
+        /// Change name (for proposal/design/tasks titles).
+        #[arg(long)]
+        change: Option<String>,
+        /// ADR number (for the adr template).
+        #[arg(long)]
+        number: Option<String>,
+        /// ADR title (for the adr template).
+        #[arg(long)]
+        title: Option<String>,
+        /// ADR date (for the adr template).
+        #[arg(long)]
+        date: Option<String>,
+    },
+    /// Create a new change directory seeded with a proposal stub.
+    New {
+        /// The change name (kebab-case).
+        change: String,
+        /// Base directory containing `openspec/` (defaults to the current dir).
+        #[arg(long, default_value = ".")]
+        base: PathBuf,
+    },
 }
 
 /// Dispatch a `spec` subcommand, returning a process exit code.
@@ -73,6 +98,16 @@ pub fn run(cmd: SpecCommand) -> i32 {
         SpecCommand::Status { change_dir } => crate::commands::spec_status::run_status(&change_dir),
         SpecCommand::Next { change_dir } => crate::commands::spec_status::run_next(&change_dir),
         SpecCommand::Adr { command } => crate::commands::spec_adr::run(command),
+        SpecCommand::Scaffold {
+            artifact,
+            change,
+            number,
+            title,
+            date,
+        } => crate::commands::spec_scaffold::run_scaffold(&artifact, change, number, title, date),
+        SpecCommand::New { change, base } => {
+            crate::commands::spec_scaffold::run_new(&change, &base)
+        }
     }
 }
 

@@ -13,14 +13,15 @@
 //!   DAG and answers `next_ready` / `is_archivable` over a `done` set.
 //! - [`adr`] parses Architecture Decision Records and computes the in-force set
 //!   via the supersession graph + the next sequence number.
+//! - [`scaffold`] renders artifact stubs from embedded minijinja templates.
 //!
-//! Still deferred (later slice): `scaffold/` (minijinja templates).
-//! The `cli/` edge lives in `crates/cli`.
+//! All designed edges are now present; the `cli/` edge lives in `crates/cli`.
 
 pub mod adr;
 pub mod archive;
 pub mod model;
 pub mod parse;
+pub mod scaffold;
 pub mod schema;
 pub mod validate;
 
@@ -28,5 +29,6 @@ pub mod validate;
 pub use adr::{parse_adr, Adr, AdrSet, AdrStatus};
 pub use model::{apply_delta, Delta, DeltaOp, MergeError, Requirement, Scenario, SpecDoc};
 pub use parse::{emit_spec, parse_delta, parse_spec};
+pub use scaffold::{render as scaffold_render, ScaffoldContext, ScaffoldError};
 pub use schema::{load_schema, Artifact, Schema, SchemaError};
 pub use validate::{validate_spec, Report};

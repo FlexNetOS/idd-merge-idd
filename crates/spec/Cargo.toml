@@ -19,6 +19,9 @@ serde_json = "1"
 # Maintained serde_yaml fork for loading schema.yaml (design §1). NOT serde_yaml
 # (archived) / serde_yml (unsound). Same choice as crates/runner.
 serde_norway = "0.9"
+# Template engine for artifact scaffolding (design §1: minijinja preferred —
+# lighter, fewer deps than Tera).
+minijinja = "2"
 thiserror = "2"
 
 [dev-dependencies]
