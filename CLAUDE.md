@@ -96,3 +96,14 @@ The constraint is scoped to the **zero-dependency core crate** — `crates/core`
 - Never commit real secrets. `idd` maps secret *references*, it does not materialize values — use `.env.example` / `.env.schema.example.json` / CI secret backends.
 - Every PR that changes the control plane updates the relevant `AI_MERGE/` record and includes the required evidence (build/test/lint/secret-scan results, migration note, rollback path, manifest update or justification).
 - If two agents conflict, stop and record it in `AI_MERGE/05_conflict_risk_register.md` before continuing.
+
+## Harness: autonomous / resumable operation (upgrade path)
+
+This repo's harness can be upgraded to **autonomous, resumable, self-restarting** operation:
+a durable on-disk backlog → one item per cycle → hand off to a fresh session at a cycle budget
+→ optional fully-unattended self-restart with a clean context each cycle ("/new" effect). Truth
+lives on disk (backlog + checkpoints + commits) so any restart resumes cold with zero loss.
+
+- Generic pattern + templates: `~/Desktop/meta/HARNESS-UPGRADE-KIT.md`
+- Tailored kit for THIS repo:  `~/Desktop/meta/harness_hub/upgrade-kits/idd-merge-idd.md`
+- Integrates with your existing skills: merge-orchestrator, merge-verification, pr-evidence-bundle (the loop drives them per cycle).
