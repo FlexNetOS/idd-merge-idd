@@ -11,21 +11,30 @@ This workspace is designed to merge three complementary projects into one integr
 
 ## Layout
 
-This is a **Cargo workspace** (the rusty-idd unification, in progress — see `docs/rusty-idd/`):
+This is a **Cargo workspace** producing one Rust-native binary, **`rusty-idd`** (the unification — see `docs/rusty-idd/`):
 
-- `crates/core/` — the std-only `idd` CLI and planner for repository unification, manifest generation, and validation (was `intent-driven-development`).
-- `crates/tui/` — the OpenSpec TUI with skills and agent interaction patterns (was `openspec-tui-main`).
-- `crates/spec/` — planned: the OpenSpec lifecycle engine ported to Rust.
-- `intent-driven-template/` — template assets, OpenSpec configuration, skills, and agent-ready task scaffolding (the lifecycle being ported into `crates/spec`).
+- `crates/core/` — std-only control-plane logic for repo unification, manifesting, validation (was `intent-driven-development`).
+- `crates/runner/` — the task-execution engine + OpenSpec data layer (split out of the TUI).
+- `crates/tui/` — the ratatui OpenSpec TUI (was `openspec-tui-main`).
+- `crates/spec/` — the OpenSpec lifecycle engine ported to Rust (parse / validate / transactional archive — no Node).
+- `crates/cli/` — **`rusty-idd`**, the unified binary wiring the above together.
+- `intent-driven-template/` — template assets / OpenSpec scaffolding.
 
-## Build
+## Build & run
 
 From the workspace root: `cargo build --workspace` / `cargo test --workspace`. CI is `.github/workflows/ci.yml`.
 
+```bash
+cargo run --bin rusty-idd -- scan --repo <path>     # core control-plane verbs (init/scan/plan/task/validate/manifest/github)
+cargo run --bin rusty-idd -- spec validate <file>   # OpenSpec lifecycle: validate / archive / show
+cargo run --bin rusty-idd -- run <change>           # headless task runner
+cargo run --bin rusty-idd -- tui                    # interactive TUI
+```
+
 ## Recommended workflow
 
-1. Review `AGENTS.md`, `crates/core/docs/AGENT_WORKFLOW.md`, and `docs/rusty-idd/` (the unification plan).
-2. Use the `idd` CLI (`cargo run --bin idd`) and validate the agent control plane.
+1. Review `AGENTS.md`, `crates/core/docs/AGENT_WORKFLOW.md`, and `docs/rusty-idd/` (the unification record).
+2. Use the `rusty-idd` CLI and validate the agent control plane.
 3. Keep agent tasks narrow and use the integration branch model described in the docs.
 
 ## Notes

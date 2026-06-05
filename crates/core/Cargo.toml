@@ -9,12 +9,10 @@ readme = "README.md"
 keywords = ["ai", "github", "merge", "automation", "rust"]
 categories = ["command-line-utilities", "development-tools"]
 
+# Library only. The standalone `idd` binary was retired in slice 8 — its CLI is
+# now `rusty-idd <verb>` (crates/cli delegates to `cli::run` here, byte-identical).
 [lib]
 name = "intent_driven_development"
 path = "src/lib.rs"
-
-[[bin]]
-name = "idd"
-path = "src/main.rs"
 
 [dependencies]
