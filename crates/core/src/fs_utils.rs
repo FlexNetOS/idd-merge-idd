@@ -37,7 +37,10 @@ pub fn append_string(path: &Path, content: &str) -> io::Result<()> {
     if let Some(parent) = path.parent() {
         ensure_dir(parent)?;
     }
-    let mut file = fs::OpenOptions::new().create(true).append(true).open(path)?;
+    let mut file = fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)?;
     file.write_all(content.as_bytes())
 }
 
@@ -123,7 +126,7 @@ pub fn should_ignore(path: &Path) -> bool {
 
     path.file_name()
         .and_then(|s| s.to_str())
-        .map(|name| ignored.iter().any(|ignore| name == *ignore))
+        .map(|name| ignored.contains(&name))
         .unwrap_or(false)
 }
 

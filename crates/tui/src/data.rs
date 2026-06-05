@@ -107,8 +107,8 @@ pub fn list_archived_changes() -> Result<Vec<ChangeEntry>, String> {
         return Ok(Vec::new());
     }
 
-    let entries = fs::read_dir(&archive_dir)
-        .map_err(|e| format!("Failed to read archive directory: {e}"))?;
+    let entries =
+        fs::read_dir(&archive_dir).map_err(|e| format!("Failed to read archive directory: {e}"))?;
 
     let mut changes: Vec<ChangeEntry> = entries
         .filter_map(|entry| {
@@ -134,8 +134,16 @@ pub fn list_archived_changes() -> Result<Vec<ChangeEntry>, String> {
 
     // Sort: date descending (newest first), then name ascending within same date
     changes.sort_by(|a, b| {
-        let date_a = if a.name.len() >= 10 { &a.name[..10] } else { &a.name };
-        let date_b = if b.name.len() >= 10 { &b.name[..10] } else { &b.name };
+        let date_a = if a.name.len() >= 10 {
+            &a.name[..10]
+        } else {
+            &a.name
+        };
+        let date_b = if b.name.len() >= 10 {
+            &b.name[..10]
+        } else {
+            &b.name
+        };
         // Primary: date descending
         let date_cmp = date_b.cmp(date_a);
         if date_cmp != std::cmp::Ordering::Equal {
@@ -188,9 +196,7 @@ pub fn get_archived_change_status(change_dir: &Path) -> ChangeStatusOutput {
         status: specs_status.to_string(),
     });
 
-    ChangeStatusOutput {
-        artifacts,
-    }
+    ChangeStatusOutput { artifacts }
 }
 
 /// Read artifact file content from disk.
@@ -363,9 +369,7 @@ pub fn write_dependencies(change_dir: &Path, dependencies: &[String]) -> Result<
 ///
 /// Changes that appear only as dependencies (but are not keys in the map)
 /// are excluded from the output — they are assumed to be already fulfilled.
-pub fn topological_sort(
-    deps: &HashMap<String, Vec<String>>,
-) -> Result<Vec<String>, String> {
+pub fn topological_sort(deps: &HashMap<String, Vec<String>>) -> Result<Vec<String>, String> {
     // Build in-degree map and adjacency list (dependency -> dependents)
     let mut in_degree: HashMap<&str, usize> = HashMap::new();
     let mut dependents: HashMap<&str, Vec<&str>> = HashMap::new();
@@ -542,7 +546,10 @@ pub fn generate_dependency_graph(deps: &HashMap<String, Vec<String>>) -> String 
     for (name, dep_list) in deps {
         for dep in dep_list {
             if deps.contains_key(dep) {
-                children.entry(dep.as_str()).or_default().push(name.as_str());
+                children
+                    .entry(dep.as_str())
+                    .or_default()
+                    .push(name.as_str());
             }
         }
     }
@@ -597,7 +604,10 @@ fn render_tree_node<'a>(
     // Render children
     let empty_vec = Vec::new();
     let node_children = children.get(node).unwrap_or(&empty_vec);
-    let unvisited_children: Vec<&&str> = node_children.iter().filter(|c| !visited.contains(**c)).collect();
+    let unvisited_children: Vec<&&str> = node_children
+        .iter()
+        .filter(|c| !visited.contains(**c))
+        .collect();
 
     for (i, child) in unvisited_children.iter().enumerate() {
         let is_last_child = i == unvisited_children.len() - 1;
@@ -612,7 +622,14 @@ fn render_tree_node<'a>(
             format!("{}│   ", prefix)
         };
 
-        render_tree_node(child, children, visited, output, &child_connector, &child_prefix);
+        render_tree_node(
+            child,
+            children,
+            visited,
+            output,
+            &child_connector,
+            &child_prefix,
+        );
     }
 }
 
@@ -945,16 +962,12 @@ mod tests {
 
     #[test]
     fn test_list_archived_changes_no_tasks_md() {
-        with_archived_changes(
-            "list-no-tasks",
-            &[("2026-03-06-no-tasks", None)],
-            |_| {
-                let result = list_archived_changes().unwrap();
-                assert_eq!(result.len(), 1);
-                assert_eq!(result[0].completed_tasks, 0);
-                assert_eq!(result[0].total_tasks, 0);
-            },
-        );
+        with_archived_changes("list-no-tasks", &[("2026-03-06-no-tasks", None)], |_| {
+            let result = list_archived_changes().unwrap();
+            assert_eq!(result.len(), 1);
+            assert_eq!(result[0].completed_tasks, 0);
+            assert_eq!(result[0].total_tasks, 0);
+        });
     }
 
     // --- get_archived_change_status tests ---
@@ -988,7 +1001,11 @@ mod tests {
         // No specs/
 
         let status = get_archived_change_status(&dir);
-        let proposal = status.artifacts.iter().find(|a| a.id == "proposal").unwrap();
+        let proposal = status
+            .artifacts
+            .iter()
+            .find(|a| a.id == "proposal")
+            .unwrap();
         assert_eq!(proposal.status, "done");
         let design = status.artifacts.iter().find(|a| a.id == "design").unwrap();
         assert_eq!(design.status, "pending");
@@ -1076,11 +1093,7 @@ mod tests {
         let dir = std::env::temp_dir().join("openspec-tui-test-write-deps-overwrite");
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
-        fs::write(
-            dir.join("change-config.yaml"),
-            "depends_on:\n  - old-dep\n",
-        )
-        .unwrap();
+        fs::write(dir.join("change-config.yaml"), "depends_on:\n  - old-dep\n").unwrap();
 
         let deps = vec!["new-dep".to_string()];
         write_dependencies(&dir, &deps).unwrap();
@@ -1412,7 +1425,7 @@ mod tests {
         )
         .unwrap();
 
-        let _changes = vec![
+        let _changes = [
             ChangeEntry {
                 name: "change-a".to_string(),
                 completed_tasks: 0,
@@ -1487,7 +1500,10 @@ mod tests {
         let mut deps = HashMap::new();
         deps.insert("api".to_string(), vec![]);
         deps.insert("db".to_string(), vec![]);
-        deps.insert("service".to_string(), vec!["api".to_string(), "db".to_string()]);
+        deps.insert(
+            "service".to_string(),
+            vec!["api".to_string(), "db".to_string()],
+        );
 
         let graph = generate_dependency_graph(&deps);
         assert!(graph.contains("api"));

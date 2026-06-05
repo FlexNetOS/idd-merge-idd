@@ -3,10 +3,10 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use crate::config::TuiConfig;
-use crate::data::{self, ChangeEntry, ChangeStatusOutput, RunMode};
-use crate::runner::{self, stop_implementation, BatchImplState, ImplState};
 #[cfg(test)]
 use crate::data::ArtifactStatus;
+use crate::data::{self, ChangeEntry, ChangeStatusOutput, RunMode};
+use crate::runner::{self, BatchImplState, ImplState, stop_implementation};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ChangeTab {
@@ -236,7 +236,14 @@ impl App {
 
     /// Reload the change list data (called after returning from interactive tool).
     pub fn reload_changes(&mut self) {
-        if let Screen::ChangeList { changes, selected, tab, change_deps, .. } = &mut self.screen {
+        if let Screen::ChangeList {
+            changes,
+            selected,
+            tab,
+            change_deps,
+            ..
+        } = &mut self.screen
+        {
             if *tab == ChangeTab::Active {
                 match data::list_changes() {
                     Ok(list) => {
@@ -330,9 +337,7 @@ impl App {
                 }
             }
             Screen::ArtifactView {
-                content,
-                file_path,
-                ..
+                content, file_path, ..
             } => {
                 if let Some(path) = file_path {
                     *content = data::read_artifact_content(path)
@@ -355,10 +360,7 @@ impl App {
                     *selected = 0;
                 }
             }
-            Screen::DependencyGraph {
-                graph_text,
-                ..
-            } => {
+            Screen::DependencyGraph { graph_text, .. } => {
                 // Reload changes and deps from scratch
                 if let Ok(list) = data::list_changes() {
                     let change_deps = data::load_change_dependencies(&list.changes);
@@ -366,9 +368,7 @@ impl App {
                 }
             }
             Screen::RunAllSelection {
-                entries,
-                selected,
-                ..
+                entries, selected, ..
             } => {
                 if let Ok(list) = data::list_changes() {
                     *entries = build_run_all_entries(&list.changes);
@@ -505,10 +505,8 @@ impl App {
                     self.screen_stack.push(old_screen);
                 }
             }
-            KeyCode::Char('I') => {
-                if *tab == ChangeTab::Active && self.implementation.is_none() {
-                    self.launch_interactive = true;
-                }
+            KeyCode::Char('I') if *tab == ChangeTab::Active && self.implementation.is_none() => {
+                self.launch_interactive = true;
             }
             _ => {}
         }
@@ -648,8 +646,7 @@ impl App {
                         RunMode::Normal => runner::start_implementation(&name, &self.config),
                         RunMode::Apply => runner::start_apply(&name, &self.config),
                     });
-                    let content = data::read_artifact_content(&log_path)
-                        .unwrap_or_default();
+                    let content = data::read_artifact_content(&log_path).unwrap_or_default();
                     let file_path = Some(log_path);
                     let old_screen = std::mem::replace(
                         &mut self.screen,
@@ -837,7 +834,11 @@ impl App {
 
     /// Update the post-implementation prompt on the Config screen (called after $EDITOR exits).
     pub fn set_config_post_prompt(&mut self, new_prompt: String) {
-        if let Screen::Config { post_implementation_prompt, .. } = &mut self.screen {
+        if let Screen::Config {
+            post_implementation_prompt,
+            ..
+        } = &mut self.screen
+        {
             *post_implementation_prompt = new_prompt;
         }
     }
@@ -1014,11 +1015,7 @@ impl App {
     }
 
     pub fn handle_dependency_graph_input(&mut self, key: KeyCode) {
-        let Screen::DependencyGraph {
-            scroll,
-            graph_text,
-        } = &mut self.screen
-        else {
+        let Screen::DependencyGraph { scroll, graph_text } = &mut self.screen else {
             return;
         };
 
@@ -1112,8 +1109,7 @@ impl App {
                     }
                     Ok(sorted) => {
                         if let Some(first) = sorted.first() {
-                            let batch =
-                                BatchImplState::new(sorted.clone(), deps_map);
+                            let batch = BatchImplState::new(sorted.clone(), deps_map);
                             self.batch = Some(batch);
                             let change_dir = changes_dir.join(first);
                             let run_mode = data::read_run_mode(&change_dir);
@@ -1121,9 +1117,7 @@ impl App {
                                 RunMode::Normal => {
                                     runner::start_implementation(first, &self.config)
                                 }
-                                RunMode::Apply => {
-                                    runner::start_apply(first, &self.config)
-                                }
+                                RunMode::Apply => runner::start_apply(first, &self.config),
                             });
                         }
                         if let Some(prev) = self.screen_stack.pop() {
@@ -1348,7 +1342,6 @@ mod tests {
                     name: "test".to_string(),
                     completed_tasks: 0,
                     total_tasks: 5,
-
                 }],
                 selected: 0,
                 error: None,
@@ -1441,19 +1434,16 @@ mod tests {
                         name: "a".to_string(),
                         completed_tasks: 0,
                         total_tasks: 1,
-    
                     },
                     ChangeEntry {
                         name: "b".to_string(),
                         completed_tasks: 0,
                         total_tasks: 1,
-    
                     },
                     ChangeEntry {
                         name: "c".to_string(),
                         completed_tasks: 0,
                         total_tasks: 1,
-    
                     },
                 ],
                 selected: 0,
@@ -1736,7 +1726,7 @@ mod tests {
     #[test]
     fn test_r_key_ignored_when_implementation_running() {
         use std::sync::atomic::AtomicBool;
-        use std::sync::{mpsc, Arc, Mutex};
+        use std::sync::{Arc, Mutex, mpsc};
 
         let (_tx, rx) = mpsc::channel();
         let existing_impl = crate::runner::ImplState {
@@ -1777,7 +1767,7 @@ mod tests {
     #[test]
     fn test_s_key_stops_implementation() {
         use std::sync::atomic::AtomicBool;
-        use std::sync::{mpsc, Arc, Mutex};
+        use std::sync::{Arc, Mutex, mpsc};
 
         let (_tx, rx) = mpsc::channel();
         let cancel_flag = Arc::new(AtomicBool::new(false));
@@ -1842,7 +1832,7 @@ mod tests {
     #[test]
     fn test_s_key_works_from_artifact_view() {
         use std::sync::atomic::AtomicBool;
-        use std::sync::{mpsc, Arc, Mutex};
+        use std::sync::{Arc, Mutex, mpsc};
 
         let (_tx, rx) = mpsc::channel();
         let cancel_flag = Arc::new(AtomicBool::new(false));
@@ -1884,7 +1874,7 @@ mod tests {
     #[test]
     fn test_s_key_works_from_artifact_menu() {
         use std::sync::atomic::AtomicBool;
-        use std::sync::{mpsc, Arc, Mutex};
+        use std::sync::{Arc, Mutex, mpsc};
 
         let (_tx, rx) = mpsc::channel();
         let cancel_flag = Arc::new(AtomicBool::new(false));
@@ -1926,7 +1916,7 @@ mod tests {
     #[test]
     fn test_poll_implementation_updates_progress() {
         use std::sync::atomic::AtomicBool;
-        use std::sync::{mpsc, Arc, Mutex};
+        use std::sync::{Arc, Mutex, mpsc};
 
         let (tx, rx) = mpsc::channel();
         let impl_state = crate::runner::ImplState {
@@ -1979,7 +1969,7 @@ mod tests {
     #[test]
     fn test_poll_implementation_clears_on_finished() {
         use std::sync::atomic::AtomicBool;
-        use std::sync::{mpsc, Arc, Mutex};
+        use std::sync::{Arc, Mutex, mpsc};
 
         let (tx, rx) = mpsc::channel();
         let impl_state = crate::runner::ImplState {
@@ -2009,7 +1999,8 @@ mod tests {
             config_path: PathBuf::from("/tmp/openspec-tui-test-config.yaml"),
         };
 
-        tx.send(crate::runner::ImplUpdate::Finished { success: true }).unwrap();
+        tx.send(crate::runner::ImplUpdate::Finished { success: true })
+            .unwrap();
 
         app.poll_implementation();
 
@@ -2019,7 +2010,7 @@ mod tests {
     #[test]
     fn test_poll_implementation_progress_then_finished() {
         use std::sync::atomic::AtomicBool;
-        use std::sync::{mpsc, Arc, Mutex};
+        use std::sync::{Arc, Mutex, mpsc};
 
         let (tx, rx) = mpsc::channel();
         let impl_state = crate::runner::ImplState {
@@ -2055,7 +2046,8 @@ mod tests {
             total: 5,
         })
         .unwrap();
-        tx.send(crate::runner::ImplUpdate::Finished { success: true }).unwrap();
+        tx.send(crate::runner::ImplUpdate::Finished { success: true })
+            .unwrap();
 
         app.poll_implementation();
 
@@ -2090,7 +2082,7 @@ mod tests {
     #[test]
     fn test_poll_implementation_no_messages() {
         use std::sync::atomic::AtomicBool;
-        use std::sync::{mpsc, Arc, Mutex};
+        use std::sync::{Arc, Mutex, mpsc};
 
         let (_tx, rx) = mpsc::channel();
         let impl_state = crate::runner::ImplState {
@@ -2144,7 +2136,10 @@ mod tests {
         let items = build_artifact_menu_items(&status, &dir, false);
 
         // Should have: Proposal, Design, Tasks, Specs header, Implementation Log, Dependencies [0]
-        let log_item = items.iter().find(|i| i.label == "Implementation Log").unwrap();
+        let log_item = items
+            .iter()
+            .find(|i| i.label == "Implementation Log")
+            .unwrap();
         assert!(log_item.available);
         assert_eq!(log_item.file_path, Some(dir.join("implementation.log")));
         assert!(!log_item.is_spec_header);
@@ -2209,7 +2204,6 @@ mod tests {
                     name: "active-change".to_string(),
                     completed_tasks: 0,
                     total_tasks: 1,
-
                 }],
                 selected: 0,
                 error: None,
@@ -2269,7 +2263,6 @@ mod tests {
                     name: "test".to_string(),
                     completed_tasks: 0,
                     total_tasks: 1,
-
                 }],
                 selected: 0,
                 error: None,
@@ -2364,13 +2357,11 @@ mod tests {
                         name: "a".to_string(),
                         completed_tasks: 0,
                         total_tasks: 1,
-    
                     },
                     ChangeEntry {
                         name: "b".to_string(),
                         completed_tasks: 0,
                         total_tasks: 1,
-    
                     },
                 ],
                 selected: 1,
@@ -2762,7 +2753,10 @@ mod tests {
     fn test_config_screen_has_cloned_config_values() {
         let mut app = make_config_app();
         app.push_config_screen();
-        if let Screen::Config { command, prompt, .. } = &app.screen {
+        if let Screen::Config {
+            command, prompt, ..
+        } = &app.screen
+        {
             assert_eq!(command, "test-tool {prompt}");
             assert_eq!(prompt, "test prompt {name}");
         } else {
@@ -2774,7 +2768,12 @@ mod tests {
     fn test_config_screen_cursor_starts_at_end() {
         let mut app = make_config_app();
         app.push_config_screen();
-        if let Screen::Config { cursor_position, command, .. } = &app.screen {
+        if let Screen::Config {
+            cursor_position,
+            command,
+            ..
+        } = &app.screen
+        {
             assert_eq!(*cursor_position, command.len());
         } else {
             panic!("Expected Config screen");
@@ -2860,7 +2859,12 @@ mod tests {
         app.handle_config_input(KeyCode::Char('A'));
         app.handle_config_input(KeyCode::Char('B'));
 
-        if let Screen::Config { command, cursor_position, .. } = &app.screen {
+        if let Screen::Config {
+            command,
+            cursor_position,
+            ..
+        } = &app.screen
+        {
             assert_eq!(command, "ABtest-tool {prompt}");
             assert_eq!(*cursor_position, 2);
         } else {
@@ -2911,25 +2915,37 @@ mod tests {
 
         // Home -> cursor at 0
         app.handle_config_input(KeyCode::Home);
-        if let Screen::Config { cursor_position, .. } = &app.screen {
+        if let Screen::Config {
+            cursor_position, ..
+        } = &app.screen
+        {
             assert_eq!(*cursor_position, 0);
         }
 
         // Right -> cursor at 1
         app.handle_config_input(KeyCode::Right);
-        if let Screen::Config { cursor_position, .. } = &app.screen {
+        if let Screen::Config {
+            cursor_position, ..
+        } = &app.screen
+        {
             assert_eq!(*cursor_position, 1);
         }
 
         // End -> cursor at end
         app.handle_config_input(KeyCode::End);
-        if let Screen::Config { cursor_position, .. } = &app.screen {
+        if let Screen::Config {
+            cursor_position, ..
+        } = &app.screen
+        {
             assert_eq!(*cursor_position, cmd_len);
         }
 
         // Left -> cursor at end - 1
         app.handle_config_input(KeyCode::Left);
-        if let Screen::Config { cursor_position, .. } = &app.screen {
+        if let Screen::Config {
+            cursor_position, ..
+        } = &app.screen
+        {
             assert_eq!(*cursor_position, cmd_len - 1);
         }
     }
@@ -2963,7 +2979,13 @@ mod tests {
 
         // Reset to defaults
         app.handle_config_input(KeyCode::Char('D'));
-        if let Screen::Config { command, prompt, focused_field, .. } = &app.screen {
+        if let Screen::Config {
+            command,
+            prompt,
+            focused_field,
+            ..
+        } = &app.screen
+        {
             let defaults = TuiConfig::default();
             assert_eq!(command, &defaults.command);
             assert_eq!(prompt, &defaults.prompt);
@@ -2983,7 +3005,10 @@ mod tests {
 
         // Enter on prompt should signal editor
         let result = app.handle_config_input(KeyCode::Enter);
-        assert!(result, "Enter on prompt field should return true for editor");
+        assert!(
+            result,
+            "Enter on prompt field should return true for editor"
+        );
         // Screen should still be Config
         assert!(matches!(app.screen, Screen::Config { .. }));
     }
@@ -3015,7 +3040,10 @@ mod tests {
 
         // D in navigation mode resets to defaults, even with Command focused
         app.handle_config_input(KeyCode::Char('D'));
-        if let Screen::Config { command, prompt, .. } = &app.screen {
+        if let Screen::Config {
+            command, prompt, ..
+        } = &app.screen
+        {
             let defaults = TuiConfig::default();
             assert_eq!(command, &defaults.command);
             assert_eq!(prompt, &defaults.prompt);
@@ -3053,8 +3081,14 @@ mod tests {
         app.handle_config_input(KeyCode::Char('y'));
         app.handle_config_input(KeyCode::Char('z'));
 
-        if let Screen::Config { command, editing, .. } = &app.screen {
-            assert_eq!(command, &original, "Command should not change in navigation mode");
+        if let Screen::Config {
+            command, editing, ..
+        } = &app.screen
+        {
+            assert_eq!(
+                command, &original,
+                "Command should not change in navigation mode"
+            );
             assert!(!editing, "Should still be in navigation mode");
         } else {
             panic!("Expected Config screen");
@@ -3092,7 +3126,10 @@ mod tests {
 
         // Esc should exit edit mode (not the config screen)
         app.handle_config_input(KeyCode::Esc);
-        if let Screen::Config { editing, command, .. } = &app.screen {
+        if let Screen::Config {
+            editing, command, ..
+        } = &app.screen
+        {
             assert!(!editing, "Esc should return to navigation mode");
             assert!(command.contains('X'), "Edits should be preserved");
         } else {
@@ -3112,7 +3149,10 @@ mod tests {
 
         // Enter again should exit edit mode
         app.handle_config_input(KeyCode::Enter);
-        if let Screen::Config { editing, command, .. } = &app.screen {
+        if let Screen::Config {
+            editing, command, ..
+        } = &app.screen
+        {
             assert!(!editing, "Enter should return to navigation mode");
             assert!(command.contains('Z'), "Edits should be preserved");
         } else {
@@ -3135,7 +3175,12 @@ mod tests {
         };
 
         app.handle_config_input(KeyCode::Backspace);
-        if let Screen::Config { command, cursor_position, .. } = &app.screen {
+        if let Screen::Config {
+            command,
+            cursor_position,
+            ..
+        } = &app.screen
+        {
             assert_eq!(command, &original);
             assert_eq!(*cursor_position, 0);
         }
@@ -3167,7 +3212,11 @@ mod tests {
         app.push_config_screen();
 
         // Verify it's loaded
-        if let Screen::Config { post_implementation_prompt, .. } = &app.screen {
+        if let Screen::Config {
+            post_implementation_prompt,
+            ..
+        } = &app.screen
+        {
             assert_eq!(post_implementation_prompt, "commit {name}");
         } else {
             panic!("Expected Config screen");
@@ -3175,8 +3224,15 @@ mod tests {
 
         // Reset to defaults
         app.handle_config_input(KeyCode::Char('D'));
-        if let Screen::Config { post_implementation_prompt, .. } = &app.screen {
-            assert_eq!(post_implementation_prompt, "", "Post-impl prompt should be empty after reset");
+        if let Screen::Config {
+            post_implementation_prompt,
+            ..
+        } = &app.screen
+        {
+            assert_eq!(
+                post_implementation_prompt, "",
+                "Post-impl prompt should be empty after reset"
+            );
         } else {
             panic!("Expected Config screen");
         }
@@ -3208,7 +3264,10 @@ mod tests {
 
         // Enter on PostImplementationPrompt should signal editor
         let result = app.handle_config_input(KeyCode::Enter);
-        assert!(result, "Enter on PostImplementationPrompt field should return true for editor");
+        assert!(
+            result,
+            "Enter on PostImplementationPrompt field should return true for editor"
+        );
     }
 
     #[test]
@@ -3217,7 +3276,11 @@ mod tests {
         app.push_config_screen();
 
         app.set_config_post_prompt("commit all changes".to_string());
-        if let Screen::Config { post_implementation_prompt, .. } = &app.screen {
+        if let Screen::Config {
+            post_implementation_prompt,
+            ..
+        } = &app.screen
+        {
             assert_eq!(post_implementation_prompt, "commit all changes");
         } else {
             panic!("Expected Config screen");
@@ -3262,8 +3325,16 @@ mod tests {
         app.handle_config_input(KeyCode::Tab); // -> InteractiveCommand
 
         let result = app.handle_config_input(KeyCode::Enter);
-        assert!(!result, "Enter on InteractiveCommand should not signal editor");
-        if let Screen::Config { editing, focused_field, .. } = &app.screen {
+        assert!(
+            !result,
+            "Enter on InteractiveCommand should not signal editor"
+        );
+        if let Screen::Config {
+            editing,
+            focused_field,
+            ..
+        } = &app.screen
+        {
             assert!(*editing, "Should be in edit mode");
             assert_eq!(*focused_field, ConfigField::InteractiveCommand);
         }
@@ -3286,7 +3357,11 @@ mod tests {
         app.handle_config_input(KeyCode::Char('-'));
         app.handle_config_input(KeyCode::Char('v'));
 
-        if let Screen::Config { interactive_command, .. } = &app.screen {
+        if let Screen::Config {
+            interactive_command,
+            ..
+        } = &app.screen
+        {
             assert_eq!(interactive_command, "claude --v");
         } else {
             panic!("Expected Config screen");
@@ -3363,14 +3438,22 @@ mod tests {
         app.handle_config_input(KeyCode::Char('x'));
         app.handle_config_input(KeyCode::Esc); // exit edit mode
 
-        if let Screen::Config { interactive_command, .. } = &app.screen {
+        if let Screen::Config {
+            interactive_command,
+            ..
+        } = &app.screen
+        {
             assert_eq!(interactive_command, "x");
         }
 
         // Reset to defaults
         app.handle_config_input(KeyCode::Char('D'));
 
-        if let Screen::Config { interactive_command, .. } = &app.screen {
+        if let Screen::Config {
+            interactive_command,
+            ..
+        } = &app.screen
+        {
             assert_eq!(interactive_command, "claude");
         } else {
             panic!("Expected Config screen");
@@ -3389,8 +3472,16 @@ mod tests {
         app.handle_config_input(KeyCode::Tab); // -> RunFinishedCommand
 
         let result = app.handle_config_input(KeyCode::Enter);
-        assert!(!result, "Enter on RunFinishedCommand should not signal editor");
-        if let Screen::Config { editing, focused_field, .. } = &app.screen {
+        assert!(
+            !result,
+            "Enter on RunFinishedCommand should not signal editor"
+        );
+        if let Screen::Config {
+            editing,
+            focused_field,
+            ..
+        } = &app.screen
+        {
             assert!(*editing, "Should be in edit mode");
             assert_eq!(*focused_field, ConfigField::RunFinishedCommand);
         }
@@ -3414,7 +3505,11 @@ mod tests {
         app.handle_config_input(KeyCode::Char('f'));
         app.handle_config_input(KeyCode::Char('y'));
 
-        if let Screen::Config { run_finished_command, .. } = &app.screen {
+        if let Screen::Config {
+            run_finished_command,
+            ..
+        } = &app.screen
+        {
             assert_eq!(run_finished_command, "ntfy");
         } else {
             panic!("Expected Config screen");
@@ -3482,14 +3577,22 @@ mod tests {
         app.handle_config_input(KeyCode::Char('x'));
         app.handle_config_input(KeyCode::Esc); // exit edit mode
 
-        if let Screen::Config { run_finished_command, .. } = &app.screen {
+        if let Screen::Config {
+            run_finished_command,
+            ..
+        } = &app.screen
+        {
             assert_eq!(run_finished_command, "x");
         }
 
         // Reset to defaults
         app.handle_config_input(KeyCode::Char('D'));
 
-        if let Screen::Config { run_finished_command, .. } = &app.screen {
+        if let Screen::Config {
+            run_finished_command,
+            ..
+        } = &app.screen
+        {
             assert_eq!(run_finished_command, "");
         } else {
             panic!("Expected Config screen");
@@ -3547,7 +3650,10 @@ mod tests {
         app.spawn_run_finished_command();
         // Give the child process time to execute
         std::thread::sleep(std::time::Duration::from_millis(200));
-        assert!(marker.exists(), "Run finished command should have created the marker file");
+        assert!(
+            marker.exists(),
+            "Run finished command should have created the marker file"
+        );
     }
 
     #[test]
@@ -3558,7 +3664,8 @@ mod tests {
         let cmd = format!("touch {}", marker.display());
 
         let (tx, rx) = mpsc::channel();
-        tx.send(runner::ImplUpdate::Finished { success: true }).unwrap();
+        tx.send(runner::ImplUpdate::Finished { success: true })
+            .unwrap();
 
         let mut app = App {
             screen: Screen::ChangeList {
@@ -3603,7 +3710,8 @@ mod tests {
         let cmd = format!("touch {}", marker.display());
 
         let (tx, rx) = mpsc::channel();
-        tx.send(runner::ImplUpdate::Finished { success: true }).unwrap();
+        tx.send(runner::ImplUpdate::Finished { success: true })
+            .unwrap();
 
         let batch = BatchImplState::new(
             vec!["change-a".to_string(), "change-b".to_string()],
@@ -3640,7 +3748,10 @@ mod tests {
 
         app.poll_implementation();
         // A new implementation should have started (batch is not done yet)
-        assert!(app.implementation.is_some(), "Batch should start next change");
+        assert!(
+            app.implementation.is_some(),
+            "Batch should start next change"
+        );
 
         std::thread::sleep(std::time::Duration::from_millis(200));
         assert!(!marker.exists(), "Hook should NOT fire mid-batch");
@@ -3683,10 +3794,7 @@ mod tests {
     fn test_advance_batch_with_explicit_failure() {
         let mut deps = HashMap::new();
         deps.insert("change-b".to_string(), vec!["change-a".to_string()]);
-        let batch = BatchImplState::new(
-            vec!["change-a".to_string(), "change-b".to_string()],
-            deps,
-        );
+        let batch = BatchImplState::new(vec!["change-a".to_string(), "change-b".to_string()], deps);
         let mut app = App {
             screen: Screen::ChangeList {
                 changes: vec![],
@@ -3706,7 +3814,10 @@ mod tests {
 
         // advance with success=false should mark change-a as failed and skip change-b
         app.advance_batch(false);
-        assert!(app.batch.is_none(), "Batch should be finished since change-b is skipped");
+        assert!(
+            app.batch.is_none(),
+            "Batch should be finished since change-b is skipped"
+        );
     }
 
     // --- Dependency View Tests ---
@@ -3776,7 +3887,11 @@ mod tests {
             screen: Screen::DependencyView {
                 change_name: "test-change".to_string(),
                 change_dir: dir.clone(),
-                dependencies: vec!["dep-a".to_string(), "dep-b".to_string(), "dep-c".to_string()],
+                dependencies: vec![
+                    "dep-a".to_string(),
+                    "dep-b".to_string(),
+                    "dep-c".to_string(),
+                ],
                 selected: 1,
                 run_mode: RunMode::Normal,
             },
@@ -3791,8 +3906,16 @@ mod tests {
 
         // Remove dep-b (selected=1)
         app.handle_dependency_view_input(KeyCode::Char('D'));
-        if let Screen::DependencyView { dependencies, selected, .. } = &app.screen {
-            assert_eq!(dependencies, &vec!["dep-a".to_string(), "dep-c".to_string()]);
+        if let Screen::DependencyView {
+            dependencies,
+            selected,
+            ..
+        } = &app.screen
+        {
+            assert_eq!(
+                dependencies,
+                &vec!["dep-a".to_string(), "dep-c".to_string()]
+            );
             assert_eq!(*selected, 1); // stays at 1, now pointing to dep-c
         }
 
@@ -3823,7 +3946,12 @@ mod tests {
 
         // Remove dep-b (last item, selected=1)
         app.handle_dependency_view_input(KeyCode::Char('D'));
-        if let Screen::DependencyView { dependencies, selected, .. } = &app.screen {
+        if let Screen::DependencyView {
+            dependencies,
+            selected,
+            ..
+        } = &app.screen
+        {
             assert_eq!(dependencies, &vec!["dep-a".to_string()]);
             assert_eq!(*selected, 0); // adjusted back
         }
@@ -3881,7 +4009,11 @@ mod tests {
             screen: Screen::DependencyAdd {
                 change_name: "test-change".to_string(),
                 change_dir: PathBuf::from("/tmp"),
-                available_changes: vec!["change-a".to_string(), "change-b".to_string(), "change-c".to_string()],
+                available_changes: vec![
+                    "change-a".to_string(),
+                    "change-b".to_string(),
+                    "change-c".to_string(),
+                ],
                 selected: 0,
             },
             screen_stack: Vec::new(),
@@ -3948,7 +4080,10 @@ mod tests {
 
         // Should return to DependencyView with new dep added
         if let Screen::DependencyView { dependencies, .. } = &app.screen {
-            assert_eq!(dependencies, &vec!["existing-dep".to_string(), "new-dep".to_string()]);
+            assert_eq!(
+                dependencies,
+                &vec!["existing-dep".to_string(), "new-dep".to_string()]
+            );
         } else {
             panic!("Expected DependencyView screen");
         }
@@ -4007,7 +4142,10 @@ mod tests {
         let items = build_artifact_menu_items(&status, &dir, false);
 
         let dep_item = items.iter().find(|i| i.is_dependency_item);
-        assert!(dep_item.is_some(), "Dependencies item should appear for active changes");
+        assert!(
+            dep_item.is_some(),
+            "Dependencies item should appear for active changes"
+        );
         assert_eq!(dep_item.unwrap().label, "Dependencies [0]");
         assert!(dep_item.unwrap().available);
 
@@ -4064,11 +4202,7 @@ mod tests {
     fn test_enter_on_dependencies_item_opens_dependency_view() {
         let dir = std::env::temp_dir().join("openspec-tui-test-dep-item-enter");
         std::fs::create_dir_all(&dir).unwrap();
-        std::fs::write(
-            dir.join("change-config.yaml"),
-            "depends_on:\n  - dep-one\n",
-        )
-        .unwrap();
+        std::fs::write(dir.join("change-config.yaml"), "depends_on:\n  - dep-one\n").unwrap();
 
         let mut app = App {
             screen: Screen::ArtifactMenu {
@@ -4109,10 +4243,7 @@ mod tests {
 
         // Previous screen should be on the stack
         assert_eq!(app.screen_stack.len(), 1);
-        assert!(matches!(
-            app.screen_stack[0],
-            Screen::ArtifactMenu { .. }
-        ));
+        assert!(matches!(app.screen_stack[0], Screen::ArtifactMenu { .. }));
 
         std::fs::remove_dir_all(&dir).unwrap();
     }
@@ -4203,13 +4334,11 @@ mod tests {
                         name: "a".to_string(),
                         completed_tasks: 0,
                         total_tasks: 1,
-    
                     },
                     ChangeEntry {
                         name: "b".to_string(),
                         completed_tasks: 0,
                         total_tasks: 1,
-    
                     },
                 ],
                 selected: 0,
@@ -4263,7 +4392,6 @@ mod tests {
                     name: "test".to_string(),
                     completed_tasks: 0,
                     total_tasks: 5,
-
                 }],
                 selected: 0,
                 error: None,
@@ -4309,7 +4437,7 @@ mod tests {
     #[test]
     fn test_change_list_i_ignored_during_running_implementation() {
         use std::sync::atomic::AtomicBool;
-        use std::sync::{mpsc, Arc, Mutex};
+        use std::sync::{Arc, Mutex, mpsc};
 
         let (_tx, rx) = mpsc::channel();
         let existing_impl = crate::runner::ImplState {
@@ -4328,7 +4456,6 @@ mod tests {
                     name: "test".to_string(),
                     completed_tasks: 0,
                     total_tasks: 5,
-
                 }],
                 selected: 0,
                 error: None,
@@ -4496,7 +4623,6 @@ mod tests {
                     name: "test".to_string(),
                     completed_tasks: 0,
                     total_tasks: 5,
-
                 }],
                 selected: 0,
                 error: None,
@@ -4544,7 +4670,7 @@ mod tests {
     #[test]
     fn test_run_all_selection_a_ignored_when_implementation_running() {
         use std::sync::atomic::AtomicBool;
-        use std::sync::{mpsc, Arc, Mutex};
+        use std::sync::{Arc, Mutex, mpsc};
 
         let (_tx, rx) = mpsc::channel();
         let existing_impl = crate::runner::ImplState {
@@ -4563,7 +4689,6 @@ mod tests {
                     name: "test".to_string(),
                     completed_tasks: 0,
                     total_tasks: 5,
-
                 }],
                 selected: 0,
                 error: None,
@@ -4648,7 +4773,7 @@ mod tests {
     #[test]
     fn test_poll_implementation_finished_clears_single_batch() {
         use std::sync::atomic::AtomicBool;
-        use std::sync::{mpsc, Arc, Mutex};
+        use std::sync::{Arc, Mutex, mpsc};
 
         let (tx, rx) = mpsc::channel();
         let impl_state = crate::runner::ImplState {
@@ -4680,7 +4805,8 @@ mod tests {
             config_path: PathBuf::from("/tmp/openspec-tui-test-config.yaml"),
         };
 
-        tx.send(crate::runner::ImplUpdate::Finished { success: true }).unwrap();
+        tx.send(crate::runner::ImplUpdate::Finished { success: true })
+            .unwrap();
         app.poll_implementation();
 
         // Implementation should be cleared
@@ -4692,7 +4818,7 @@ mod tests {
     #[test]
     fn test_poll_implementation_finished_advances_batch_to_next() {
         use std::sync::atomic::AtomicBool;
-        use std::sync::{mpsc, Arc, Mutex};
+        use std::sync::{Arc, Mutex, mpsc};
 
         let (tx, rx) = mpsc::channel();
         let impl_state = crate::runner::ImplState {
@@ -4728,15 +4854,13 @@ mod tests {
             config_path: PathBuf::from("/tmp/openspec-tui-test-config.yaml"),
         };
 
-        tx.send(crate::runner::ImplUpdate::Finished { success: true }).unwrap();
+        tx.send(crate::runner::ImplUpdate::Finished { success: true })
+            .unwrap();
         app.poll_implementation();
 
         // Implementation should be started for change-b
         assert!(app.implementation.is_some());
-        assert_eq!(
-            app.implementation.as_ref().unwrap().change_name,
-            "change-b"
-        );
+        assert_eq!(app.implementation.as_ref().unwrap().change_name, "change-b");
         // Batch should still be active at index 1
         assert!(app.batch.is_some());
         assert_eq!(app.batch.as_ref().unwrap().current_index, 1);
@@ -4748,7 +4872,7 @@ mod tests {
     #[test]
     fn test_poll_implementation_finished_skips_dependent_on_failure() {
         use std::sync::atomic::AtomicBool;
-        use std::sync::{mpsc, Arc, Mutex};
+        use std::sync::{Arc, Mutex, mpsc};
 
         let (tx, rx) = mpsc::channel();
         let impl_state = crate::runner::ImplState {
@@ -4791,16 +4915,14 @@ mod tests {
         };
 
         // Send failure — change-a failed
-        tx.send(crate::runner::ImplUpdate::Finished { success: false }).unwrap();
+        tx.send(crate::runner::ImplUpdate::Finished { success: false })
+            .unwrap();
         app.poll_implementation();
 
         // change-b should be skipped (depends on failed change-a),
         // change-c should be started (independent)
         assert!(app.implementation.is_some());
-        assert_eq!(
-            app.implementation.as_ref().unwrap().change_name,
-            "change-c"
-        );
+        assert_eq!(app.implementation.as_ref().unwrap().change_name, "change-c");
         let batch = app.batch.as_ref().unwrap();
         assert!(batch.failed.contains("change-a"));
         assert!(batch.skipped.contains("change-b"));
@@ -4813,7 +4935,7 @@ mod tests {
     #[test]
     fn test_poll_implementation_finished_no_batch_unchanged() {
         use std::sync::atomic::AtomicBool;
-        use std::sync::{mpsc, Arc, Mutex};
+        use std::sync::{Arc, Mutex, mpsc};
 
         let (tx, rx) = mpsc::channel();
         let impl_state = crate::runner::ImplState {
@@ -4843,7 +4965,8 @@ mod tests {
             config_path: PathBuf::from("/tmp/openspec-tui-test-config.yaml"),
         };
 
-        tx.send(crate::runner::ImplUpdate::Finished { success: true }).unwrap();
+        tx.send(crate::runner::ImplUpdate::Finished { success: true })
+            .unwrap();
         app.poll_implementation();
 
         // Implementation cleared, no batch started
@@ -4868,7 +4991,7 @@ mod tests {
     #[test]
     fn test_stop_running_implementation_clears_batch() {
         use std::sync::atomic::AtomicBool;
-        use std::sync::{mpsc, Arc, Mutex};
+        use std::sync::{Arc, Mutex, mpsc};
 
         let (_tx, rx) = mpsc::channel();
         let cancel_flag = Arc::new(AtomicBool::new(false));
@@ -4922,10 +5045,7 @@ mod tests {
     #[test]
     fn test_stop_running_implementation_no_impl_clears_batch() {
         // Even without a running implementation, batch state should be cleared
-        let batch = BatchImplState::new(
-            vec!["change-a".to_string()],
-            HashMap::new(),
-        );
+        let batch = BatchImplState::new(vec!["change-a".to_string()], HashMap::new());
 
         let mut app = App {
             screen: Screen::ChangeList {
@@ -4953,7 +5073,7 @@ mod tests {
     #[test]
     fn test_stop_running_implementation_no_batch_unchanged() {
         use std::sync::atomic::AtomicBool;
-        use std::sync::{mpsc, Arc, Mutex};
+        use std::sync::{Arc, Mutex, mpsc};
 
         let (_tx, rx) = mpsc::channel();
         let cancel_flag = Arc::new(AtomicBool::new(false));
@@ -4993,7 +5113,7 @@ mod tests {
     #[test]
     fn test_poll_implementation_stalled_treats_as_failure_skips_dependents() {
         use std::sync::atomic::AtomicBool;
-        use std::sync::{mpsc, Arc, Mutex};
+        use std::sync::{Arc, Mutex, mpsc};
 
         let (tx, rx) = mpsc::channel();
         let impl_state = crate::runner::ImplState {
@@ -5043,10 +5163,7 @@ mod tests {
         assert!(app.implementation.is_some());
         // change-b should be skipped (depends on failed change-a),
         // change-c should be started (independent)
-        assert_eq!(
-            app.implementation.as_ref().unwrap().change_name,
-            "change-c"
-        );
+        assert_eq!(app.implementation.as_ref().unwrap().change_name, "change-c");
         let batch = app.batch.as_ref().unwrap();
         assert!(batch.failed.contains("change-a"));
         assert!(batch.skipped.contains("change-b"));
@@ -5062,11 +5179,7 @@ mod tests {
     fn test_r_key_dispatches_apply_mode() {
         let dir = std::env::temp_dir().join("openspec-tui-test-r-apply-mode");
         std::fs::create_dir_all(&dir).unwrap();
-        std::fs::write(
-            dir.join("change-config.yaml"),
-            "run_mode: apply\n",
-        )
-        .unwrap();
+        std::fs::write(dir.join("change-config.yaml"), "run_mode: apply\n").unwrap();
 
         let mut app = App {
             screen: Screen::ArtifactMenu {
@@ -5237,7 +5350,10 @@ mod tests {
 
         // Dependencies should be preserved
         let config = data::read_change_config(&dir);
-        assert_eq!(config.depends_on, vec!["dep-a".to_string(), "dep-b".to_string()]);
+        assert_eq!(
+            config.depends_on,
+            vec!["dep-a".to_string(), "dep-b".to_string()]
+        );
         assert_eq!(config.run_mode, RunMode::Apply);
 
         std::fs::remove_dir_all(&dir).unwrap();
@@ -5278,7 +5394,12 @@ mod tests {
 
         app.handle_artifact_menu_input(KeyCode::Enter);
 
-        if let Screen::DependencyView { run_mode, dependencies, .. } = &app.screen {
+        if let Screen::DependencyView {
+            run_mode,
+            dependencies,
+            ..
+        } = &app.screen
+        {
             assert_eq!(*run_mode, RunMode::Apply);
             assert_eq!(dependencies, &vec!["dep-one".to_string()]);
         } else {
@@ -5398,7 +5519,10 @@ mod tests {
 
         app.refresh_screen();
 
-        if let Screen::ArtifactView { content, scroll, .. } = &app.screen {
+        if let Screen::ArtifactView {
+            content, scroll, ..
+        } = &app.screen
+        {
             assert_eq!(content, "updated content");
             // Scroll position preserved
             assert_eq!(*scroll, 3);
@@ -5443,9 +5567,21 @@ mod tests {
         let mut app = App {
             screen: Screen::ChangeList {
                 changes: vec![
-                    ChangeEntry { name: "a".to_string(), completed_tasks: 0, total_tasks: 1 },
-                    ChangeEntry { name: "b".to_string(), completed_tasks: 0, total_tasks: 1 },
-                    ChangeEntry { name: "c".to_string(), completed_tasks: 0, total_tasks: 1 },
+                    ChangeEntry {
+                        name: "a".to_string(),
+                        completed_tasks: 0,
+                        total_tasks: 1,
+                    },
+                    ChangeEntry {
+                        name: "b".to_string(),
+                        completed_tasks: 0,
+                        total_tasks: 1,
+                    },
+                    ChangeEntry {
+                        name: "c".to_string(),
+                        completed_tasks: 0,
+                        total_tasks: 1,
+                    },
                 ],
                 selected: 2,
                 error: None,
@@ -5466,7 +5602,10 @@ mod tests {
         // doesn't panic and the selected index is valid.
         app.refresh_screen();
 
-        if let Screen::ChangeList { selected, changes, .. } = &app.screen {
+        if let Screen::ChangeList {
+            selected, changes, ..
+        } = &app.screen
+        {
             if !changes.is_empty() {
                 assert!(*selected < changes.len());
             } else {
@@ -5502,7 +5641,12 @@ mod tests {
         app.refresh_screen();
 
         // Config screen should remain unchanged
-        if let Screen::Config { command, cursor_position, .. } = &app.screen {
+        if let Screen::Config {
+            command,
+            cursor_position,
+            ..
+        } = &app.screen
+        {
             assert_eq!(command, "test-cmd");
             assert_eq!(*cursor_position, 5);
         } else {
@@ -5518,7 +5662,8 @@ mod tests {
         std::fs::write(
             dir.join("change-config.yaml"),
             "depends_on:\n  - dep-a\n  - dep-b\nrun_mode: normal\n",
-        ).unwrap();
+        )
+        .unwrap();
 
         let mut app = App {
             screen: Screen::DependencyView {
@@ -5540,7 +5685,10 @@ mod tests {
         app.refresh_screen();
 
         if let Screen::DependencyView { dependencies, .. } = &app.screen {
-            assert_eq!(dependencies, &vec!["dep-a".to_string(), "dep-b".to_string()]);
+            assert_eq!(
+                dependencies,
+                &vec!["dep-a".to_string(), "dep-b".to_string()]
+            );
         } else {
             panic!("Expected DependencyView screen");
         }

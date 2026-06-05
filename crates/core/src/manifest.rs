@@ -7,7 +7,10 @@ use std::path::Path;
 pub fn generate_manifest(root: impl AsRef<Path>) -> Result<Vec<ManifestEntry>, String> {
     let root = root.as_ref();
     if !root.exists() || !root.is_dir() {
-        return Err(format!("manifest root is not a directory: {}", root.display()));
+        return Err(format!(
+            "manifest root is not a directory: {}",
+            root.display()
+        ));
     }
 
     let mut entries = Vec::new();
@@ -19,7 +22,8 @@ pub fn generate_manifest(root: impl AsRef<Path>) -> Result<Vec<ManifestEntry>, S
         if !metadata.is_file() {
             continue;
         }
-        let digest = fnv1a64_file(&abs).map_err(|e| format!("hash failed for {}: {e}", abs.display()))?;
+        let digest =
+            fnv1a64_file(&abs).map_err(|e| format!("hash failed for {}: {e}", abs.display()))?;
         entries.push(ManifestEntry {
             path: relative_path(root, &abs),
             size_bytes: metadata.len(),
@@ -41,7 +45,10 @@ pub fn manifest_tsv(entries: &[ManifestEntry]) -> String {
     out
 }
 
-pub fn write_manifest(root: impl AsRef<Path>, out: impl AsRef<Path>) -> Result<Vec<ManifestEntry>, String> {
+pub fn write_manifest(
+    root: impl AsRef<Path>,
+    out: impl AsRef<Path>,
+) -> Result<Vec<ManifestEntry>, String> {
     let entries = generate_manifest(root)?;
     write_string_preserving_existing(out.as_ref(), &manifest_tsv(&entries))
         .map_err(|e| format!("failed to write manifest: {e}"))?;

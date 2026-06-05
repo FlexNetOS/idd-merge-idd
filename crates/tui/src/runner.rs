@@ -206,9 +206,15 @@ fn write_task_header(
         .create(true)
         .append(true)
         .open(log_path)?;
-    writeln!(file, "──────────────────────────────────────────────────────────────")?;
+    writeln!(
+        file,
+        "──────────────────────────────────────────────────────────────"
+    )?;
     writeln!(file, "Task {}/{}: {}", task_number, total, task_text)?;
-    writeln!(file, "──────────────────────────────────────────────────────────────")?;
+    writeln!(
+        file,
+        "──────────────────────────────────────────────────────────────"
+    )?;
     Ok(())
 }
 
@@ -218,11 +224,17 @@ fn write_run_header(log_path: &Path, change_name: &str) -> Result<(), std::io::E
         .append(true)
         .open(log_path)?;
     let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
-    writeln!(file, "══════════════════════════════════════════════════════════════")?;
+    writeln!(
+        file,
+        "══════════════════════════════════════════════════════════════"
+    )?;
     writeln!(file, "IMPLEMENTATION RUN STARTED")?;
     writeln!(file, "Time: {}", timestamp)?;
     writeln!(file, "Change: {}", change_name)?;
-    writeln!(file, "══════════════════════════════════════════════════════════════")?;
+    writeln!(
+        file,
+        "══════════════════════════════════════════════════════════════"
+    )?;
     Ok(())
 }
 
@@ -281,11 +293,7 @@ fn apply_run(
 
     let prompt = format!("/opsx:apply {}", change_name);
 
-    let log_file = match OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(log_path)
-    {
+    let log_file = match OpenOptions::new().create(true).append(true).open(log_path) {
         Ok(f) => f,
         Err(_) => {
             let _ = tx.send(ImplUpdate::Finished { success: false });
@@ -377,9 +385,7 @@ fn implementation_loop(
 
     // Stall detection: track consecutive runs without progress
     let mut stall_count: u32 = 0;
-    let mut prev_completed: u32 = data::parse_task_progress(tasks_path)
-        .unwrap_or((0, 0))
-        .0;
+    let mut prev_completed: u32 = data::parse_task_progress(tasks_path).unwrap_or((0, 0)).0;
 
     // Track loop exit reason
     let mut tasks_complete = false;
@@ -399,11 +405,7 @@ fn implementation_loop(
         }
 
         // Open log file for appending
-        let log_file = match OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(log_path)
-        {
+        let log_file = match OpenOptions::new().create(true).append(true).open(log_path) {
             Ok(f) => f,
             Err(_) => break,
         };
@@ -531,11 +533,7 @@ fn implementation_loop(
         && let Some((binary, args)) = config.build_command(&post_prompt)
     {
         // Open log file for hook output
-        let hook_ok = match OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(log_path)
-        {
+        let hook_ok = match OpenOptions::new().create(true).append(true).open(log_path) {
             Ok(log_file) => {
                 match log_file.try_clone() {
                     Ok(stderr_log) => {
@@ -567,9 +565,9 @@ fn implementation_loop(
                                     match try_result {
                                         Ok(Some(status)) => break status.success(),
                                         Ok(None) => {
-                                            std::thread::sleep(
-                                                std::time::Duration::from_millis(100),
-                                            );
+                                            std::thread::sleep(std::time::Duration::from_millis(
+                                                100,
+                                            ));
                                         }
                                         Err(_) => break false,
                                     }
@@ -636,10 +634,7 @@ mod tests {
         .unwrap();
         let msg = state.receiver.recv().unwrap();
         match msg {
-            ImplUpdate::Progress {
-                completed,
-                total,
-            } => {
+            ImplUpdate::Progress { completed, total } => {
                 assert_eq!(completed, 3);
                 assert_eq!(total, 5);
             }
@@ -823,7 +818,10 @@ mod tests {
                 got_progress = true;
             }
         }
-        assert!(!got_progress, "Loop should not send Progress when cancelled");
+        assert!(
+            !got_progress,
+            "Loop should not send Progress when cancelled"
+        );
 
         std::fs::remove_dir_all(&dir).unwrap();
     }
@@ -961,7 +959,10 @@ mod tests {
             }
             _ => panic!("Expected Progress"),
         }
-        assert!(matches!(rx.recv().unwrap(), ImplUpdate::Finished { success: true }));
+        assert!(matches!(
+            rx.recv().unwrap(),
+            ImplUpdate::Finished { success: true }
+        ));
     }
 
     #[test]
@@ -1332,16 +1333,19 @@ mod tests {
         // Run 4: no progress → Progress(1,2)
         // Run 5: no progress → Stalled (stall_count=3)
         // Total: 4 Progress + 1 Stalled = 5 messages
-        assert_eq!(messages.len(), 5, "Expected 5 messages, got: {}", messages.len());
+        assert_eq!(
+            messages.len(),
+            5,
+            "Expected 5 messages, got: {}",
+            messages.len()
+        );
 
         // Verify progress was detected (proves reset happened)
-        assert!(messages.iter().any(|m| matches!(
-            m,
-            ImplUpdate::Progress {
-                completed: 1,
-                ..
-            }
-        )));
+        assert!(
+            messages
+                .iter()
+                .any(|m| matches!(m, ImplUpdate::Progress { completed: 1, .. }))
+        );
 
         // Last message should be Stalled
         assert!(matches!(messages.last().unwrap(), ImplUpdate::Stalled));
@@ -1405,10 +1409,18 @@ mod tests {
         // Run 2: no progress → Progress(0,1)
         // Run 3: marks task → Progress(1,1) → all done → Finished
         // Total: 3 Progress + 1 Finished = 4 messages
-        assert_eq!(messages.len(), 4, "Expected 4 messages, got: {}", messages.len());
+        assert_eq!(
+            messages.len(),
+            4,
+            "Expected 4 messages, got: {}",
+            messages.len()
+        );
 
         // Should end with Finished { success: true } (not Stalled)
-        assert!(matches!(messages.last().unwrap(), ImplUpdate::Finished { success: true }));
+        assert!(matches!(
+            messages.last().unwrap(),
+            ImplUpdate::Finished { success: true }
+        ));
         assert!(!messages.iter().any(|m| matches!(m, ImplUpdate::Stalled)));
 
         std::fs::remove_dir_all(&dir).unwrap();
@@ -1634,8 +1646,16 @@ mod tests {
         }
 
         // Should have exactly one Finished message, no Progress or Stalled
-        assert_eq!(messages.len(), 1, "Expected 1 message, got: {}", messages.len());
-        assert!(matches!(messages[0], ImplUpdate::Finished { success: true }));
+        assert_eq!(
+            messages.len(),
+            1,
+            "Expected 1 message, got: {}",
+            messages.len()
+        );
+        assert!(matches!(
+            messages[0],
+            ImplUpdate::Finished { success: true }
+        ));
 
         std::fs::remove_dir_all(&dir).unwrap();
     }
@@ -1672,8 +1692,15 @@ mod tests {
 
         // Only Finished { success: false }, no Progress or Stalled
         assert_eq!(messages.len(), 1);
-        assert!(matches!(messages[0], ImplUpdate::Finished { success: false }));
-        assert!(!messages.iter().any(|m| matches!(m, ImplUpdate::Progress { .. })));
+        assert!(matches!(
+            messages[0],
+            ImplUpdate::Finished { success: false }
+        ));
+        assert!(
+            !messages
+                .iter()
+                .any(|m| matches!(m, ImplUpdate::Progress { .. }))
+        );
         assert!(!messages.iter().any(|m| matches!(m, ImplUpdate::Stalled)));
 
         std::fs::remove_dir_all(&dir).unwrap();
@@ -1739,7 +1766,10 @@ mod tests {
         while let Ok(msg) = rx.try_recv() {
             messages.push(msg);
         }
-        assert!(messages.is_empty(), "Cancelled apply should send no messages");
+        assert!(
+            messages.is_empty(),
+            "Cancelled apply should send no messages"
+        );
 
         std::fs::remove_dir_all(&dir).unwrap();
     }

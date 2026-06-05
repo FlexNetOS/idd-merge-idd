@@ -94,7 +94,10 @@ impl TuiConfig {
     pub fn build_interactive_command(&self) -> Option<(String, Vec<String>)> {
         let parts: Vec<&str> = self.interactive_command.split_whitespace().collect();
         let (first, rest) = parts.split_first()?;
-        Some((first.to_string(), rest.iter().map(|s| s.to_string()).collect()))
+        Some((
+            first.to_string(),
+            rest.iter().map(|s| s.to_string()).collect(),
+        ))
     }
 
     /// Load config from a specific path. Falls back to defaults if file is missing.
@@ -201,10 +204,7 @@ mod tests {
         };
         let yaml = serde_yaml::to_string(&config).unwrap();
         let deserialized: TuiConfig = serde_yaml::from_str(&yaml).unwrap();
-        assert_eq!(
-            deserialized.post_implementation_prompt,
-            "commit {name}"
-        );
+        assert_eq!(deserialized.post_implementation_prompt, "commit {name}");
     }
 
     #[test]

@@ -14,6 +14,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 2026-06-04 | Initial setup | All (4 agents, 6 skills) | - |
 | 2026-06-04 | Add `lifecycle-porter` agent + `lifecycle-porting` skill; generalize `drift-check.sh` (layout-agnostic, core-crate dep check); add epic/slice-type layer to planner+orchestrator; re-scope Rust-native invariant to the core crate | agents, skills, CLAUDE.md | Research found the harness was aimed at the current 2-crate snapshot; retargeted it to *build rusty-idd* (workspace restructure + Node→Rust lifecycle port) |
 | 2026-06-04 | Execute epic slices 2–3: `intent-driven-development`→`crates/core`, `openspec-tui-main`→`crates/tui`; relocate+upgrade CI to root `.github/` (workspace-aware, drift gate, fmt/clippy non-blocking); fix tui CWD-race flake; refresh layout docs | repo layout, CI, CLAUDE.md, docs/rusty-idd | Continue the rusty-idd unification; the drift gate's retarget proved out (root lock 234 pkgs, core still zero-dep) |
+| 2026-06-04 | Slice 5: fmt + clippy cleanup across both crates; flip CI fmt/clippy to blocking | both crates, CI | Workspace now fully lint-clean; CI fully enforcing |
 
 ## Session start protocol (mandatory)
 
@@ -53,11 +54,11 @@ rtk cargo build --workspace
 rtk cargo test --workspace                  # all tests
 rtk cargo test -p openspec-tui <name>       # a single test in one crate
 rtk cargo test --workspace --locked         # CI mode — fails on Cargo.lock drift
-rtk cargo fmt --all -- --check              # NON-blocking in CI until the fmt+clippy cleanup slice
-rtk cargo clippy --workspace --all-targets --all-features -- -D warnings   # NON-blocking until cleanup
+rtk cargo fmt --all -- --check              # enforced in CI
+rtk cargo clippy --workspace --all-targets --all-features -- -D warnings   # enforced in CI (warnings = errors)
 ```
 
-> CI **blocking** gates today: the Rust-native drift gate + `build --workspace` + `test --workspace`. fmt/clippy are non-blocking reporters until the dedicated cleanup slice (the two crates came from separate upstreams and aren't yet lint-clean together — ~1700 lines). See `docs/rusty-idd/slice-sequence.md`.
+> All CI gates are **blocking**: the Rust-native drift gate, `build --workspace`, `test --workspace`, `fmt --check`, and `clippy -D warnings`. The workspace is fully fmt/clippy-clean as of the cleanup slice. See `docs/rusty-idd/slice-sequence.md`.
 
 Notes:
 - `crates/core` is edition 2021 (MSRV 1.74); `crates/tui` is **edition 2024** (e.g. `let ... && let ...` chains in `runner.rs`). The workspace sets `resolver = "3"` to carry both.
