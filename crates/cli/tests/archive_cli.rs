@@ -97,6 +97,117 @@ fn archive_merges_and_moves() {
     assert!(archived.is_dir(), "change must be moved to archive/");
 }
 
+/// Build a temp layout whose MODIFIED delta replaces "CSV export" with a block
+/// that has NO scenario — so the *merged result* is structurally invalid (ERROR:
+/// requirement must have at least one scenario). Returns (root, change_dir, base).
+fn make_change_invalid_after_merge() -> (tempfile::TempDir, PathBuf, PathBuf) {
+    let root = tempfile::tempdir().unwrap();
+    let base = root.path().join("openspec/specs/widget-export");
+    let delta = root
+        .path()
+        .join("openspec/changes/break-csv/specs/widget-export");
+    std::fs::create_dir_all(&base).unwrap();
+    std::fs::create_dir_all(&delta).unwrap();
+    std::fs::copy(fixture("01-base-spec.md"), base.join("spec.md")).unwrap();
+    // Whole-block MODIFIED with no `#### Scenario:` → merged spec has a
+    // requirement with zero scenarios → validate ERROR.
+    std::fs::write(
+        delta.join("spec.md"),
+        "## MODIFIED Requirements\n\n### Requirement: CSV export\n\
+         The system SHALL export widget data as CSV.\n",
+    )
+    .unwrap();
+    let change_dir = root.path().join("openspec/changes/break-csv");
+    let base_spec = base.join("spec.md");
+    (root, change_dir, base_spec)
+}
+
+#[test]
+fn archive_default_validates_merged_and_aborts_on_error() {
+    let (root, change_dir, base_spec) = make_change_invalid_after_merge();
+    let before = std::fs::read_to_string(&base_spec).unwrap();
+
+    let out = Command::new(bin())
+        .args(["spec", "archive"])
+        .arg(&change_dir)
+        .output()
+        .expect("run rusty-idd");
+
+    assert_eq!(
+        out.status.code(),
+        Some(1),
+        "default archive must abort when the merged result is invalid"
+    );
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        stderr.contains("validation ERROR") && stderr.contains("Aborted. No files were changed."),
+        "stderr must report the validation abort: {stderr}"
+    );
+    assert_eq!(std::fs::read_to_string(&base_spec).unwrap(), before);
+    assert!(change_dir.is_dir());
+    assert!(!root
+        .path()
+        .join("openspec/changes/archive/break-csv")
+        .exists());
+}
+
+#[test]
+fn archive_no_validate_skips_validation_and_archives() {
+    let (root, change_dir, base_spec) = make_change_invalid_after_merge();
+
+    let out = Command::new(bin())
+        .args(["spec", "archive"])
+        .arg(&change_dir)
+        .arg("--no-validate")
+        .output()
+        .expect("run rusty-idd");
+
+    assert!(
+        out.status.success(),
+        "--no-validate must skip validation and archive: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let merged = std::fs::read_to_string(&base_spec).unwrap();
+    let doc = parse_spec(&merged);
+    let csv = doc
+        .requirements
+        .iter()
+        .find(|r| r.name == "CSV export")
+        .unwrap();
+    assert_eq!(
+        csv.scenarios.len(),
+        0,
+        "the no-scenario MODIFIED was applied"
+    );
+    assert!(!change_dir.exists());
+    assert!(root
+        .path()
+        .join("openspec/changes/archive/break-csv")
+        .is_dir());
+}
+
+#[test]
+fn archive_yes_flag_is_accepted_and_archives() {
+    // -y bypasses confirmation (a no-op under non-tty test stdin, but it must be
+    // accepted and not break the happy path).
+    let (root, change_dir, _base) = make_change("02-delta-spec.md");
+    let out = Command::new(bin())
+        .args(["spec", "archive"])
+        .arg(&change_dir)
+        .arg("-y")
+        .output()
+        .expect("run rusty-idd");
+    assert!(
+        out.status.success(),
+        "archive -y should succeed: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(root
+        .path()
+        .join("openspec/changes/archive/add-json")
+        .is_dir());
+}
+
 #[test]
 fn archive_aborts_transactionally_on_bad_delta() {
     let root = tempfile::tempdir().unwrap();
