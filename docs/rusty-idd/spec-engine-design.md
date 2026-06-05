@@ -248,11 +248,13 @@ blank-line edge cases.
 
 ## 7. Risks / open implementation questions
 
-- **Formatter byte-stability** (biggest risk). comrak's `format_commonmark` must
-  reproduce the oracle's exact whitespace (it *tightened* blank lines around
-  `## Purpose`/`## Requirements` in fixture `03`). If comrak's defaults differ, a
-  thin normalization post-pass is needed. Mitigation: golden test is byte-exact;
-  tune `ComrakOptions` early in Slice 4 before building op logic.
+- **Formatter byte-stability** ✅ **resolved (U6).** Rather than tune
+  `format_commonmark`, `parse/emit.rs` rebuilds the document with the oracle's
+  exact blank-line rules directly (H1 + blank; `## Purpose` section fully tight;
+  per-requirement: heading tight to body, blank before each scenario, blank after
+  each requirement → the trailing blank line). Byte-exact golden tests
+  (`archive_emit_is_byte_identical_to_oracle`, and the same for fixture `08`)
+  lock it against `03`/`08`. The semantic golden remains the primary gate.
 - **Splice-in-place vs rebuild.** Two emit strategies: (a) mutate the original
   comrak arena (preserves untouched nodes' exact formatting), or (b) rebuild the
   AST from `SpecDoc`. (a) risks less reformatting drift but is fiddlier; (b) is
