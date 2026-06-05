@@ -13,7 +13,10 @@ path = "src/lib.rs"
 chrono = "0.4"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-serde_yaml = "0.9"
+# Maintained serde_yaml fork (mdBook/Norway ecosystem). Replaces the archived
+# serde_yaml 0.9 (RUSTSEC: unmaintained). API-compatible drop-in. NOT serde_yml
+# (RUSTSEC-2025-0068, unsound). Matches the spec-engine design's YAML choice.
+serde_norway = "0.9"
 
 [dev-dependencies]
 tempfile = "3"
