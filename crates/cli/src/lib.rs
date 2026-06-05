@@ -2,11 +2,11 @@
 //! one clap binary:
 //!
 //! - **Core verbs** (`init scan plan task validate manifest github`) delegate
-//!   *verbatim* to [`intent_driven_development::cli::run`], giving automatic
+//!   *verbatim* to [`rusty_idd_core::cli::run`], giving automatic
 //!   parity with the legacy `idd` binary (same code path).
 //! - **`spec`** is a new CLI over [`rusty_idd_spec`] (validate / archive / show).
-//! - **`run`** is a headless task runner over [`openspec_runner`] (no ratatui).
-//! - **`tui`** launches the interactive TUI via [`openspec_tui::run`].
+//! - **`run`** is a headless task runner over [`rusty_idd_runner`] (no ratatui).
+//! - **`tui`** launches the interactive TUI via [`rusty_idd_tui::run`].
 //!
 //! Dependencies live at this crate (and the tui); the core crate stays zero-dep.
 
@@ -30,7 +30,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
-    // ---- Core verbs: delegate verbatim to intent_driven_development::cli::run.
+    // ---- Core verbs: delegate verbatim to rusty_idd_core::cli::run.
     /// Initialize an IDD workspace (delegates to `idd init`).
     Init(CoreArgs),
     /// Scan a repository inventory (delegates to `idd scan`).

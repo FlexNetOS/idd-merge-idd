@@ -1,5 +1,5 @@
 //! Core-verb delegation: reconstruct the argv that
-//! [`intent_driven_development::cli::run`] expects and forward it verbatim.
+//! [`rusty_idd_core::cli::run`] expects and forward it verbatim.
 //!
 //! `cli::run` parses `argv[0]` as the program name and `argv[1]` as the verb,
 //! so we hand it `["idd", <verb>, <passthrough...>]`. This is the *same* code
@@ -14,7 +14,7 @@ pub fn delegate(verb: &str, passthrough: &[String]) -> i32 {
     argv.push(verb.to_string());
     argv.extend(passthrough.iter().cloned());
 
-    match intent_driven_development::cli::run(argv) {
+    match rusty_idd_core::cli::run(argv) {
         Ok(()) => 0,
         Err(err) => {
             eprintln!("idd: {err}");

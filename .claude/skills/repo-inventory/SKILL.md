@@ -22,15 +22,15 @@ rtk git fetch --all && rtk git status -sb
 `idd scan` emits both human-readable and machine-readable inventories. Run it for each side of the merge:
 ```bash
 # from the workspace root (the idd binary lives in crates/core)
-rtk cargo run --bin idd -- scan --repo <path> --format md   --out <ws>/01_<name>_inventory.md
-rtk cargo run --bin idd -- scan --repo <path> --format json --out <ws>/01_<name>_inventory.json
+rtk cargo run --bin rusty-idd -- scan --repo <path> --format md   --out <ws>/01_<name>_inventory.md
+rtk cargo run --bin rusty-idd -- scan --repo <path> --format json --out <ws>/01_<name>_inventory.json
 ```
 The inventory captures language counts, package managers, entrypoints, workflows, agent-control files, and secret references per repo.
 
 ### 3. For a two-repo unification, prefer `idd plan`
 When the task is to unify two repos, `idd plan` generates the full control plane (both inventories, feature matrix, env/secret contract, merge plan, conflict register) in one pass:
 ```bash
-rtk cargo run --bin idd -- plan --repo-a <pathA> --repo-b <pathB> --out <ws> --name <slug>
+rtk cargo run --bin rusty-idd -- plan --repo-a <pathA> --repo-b <pathB> --out <ws> --name <slug>
 ```
 Read the generated `AI_MERGE/02_feature_matrix.md` and `AI_MERGE/03_env_and_secret_contracts.*` and distill them into your `_workspace/` artifacts.
 

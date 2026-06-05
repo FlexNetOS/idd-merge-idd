@@ -1,12 +1,12 @@
 [package]
-name = "openspec-runner"
+name = "rusty-idd-runner"
 version = "0.1.0"
 edition = "2024"
 license = "MIT"
-description = "Task-execution engine and OpenSpec data layer for openspec-tui / rusty-idd"
+description = "Task-execution engine and OpenSpec data layer for the rusty-idd TUI and CLI"
 
 [lib]
-name = "openspec_runner"
+name = "rusty_idd_runner"
 path = "src/lib.rs"
 
 [dependencies]

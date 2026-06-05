@@ -1,5 +1,5 @@
 [package]
-name = "intent-driven-development"
+name = "rusty-idd-core"
 version = "0.2.0"
 edition = "2021"
 rust-version = "1.74"
@@ -12,7 +12,7 @@ categories = ["command-line-utilities", "development-tools"]
 # Library only. The standalone `idd` binary was retired in slice 8 — its CLI is
 # now `rusty-idd <verb>` (crates/cli delegates to `cli::run` here, byte-identical).
 [lib]
-name = "intent_driven_development"
+name = "rusty_idd_core"
 path = "src/lib.rs"
 
 [dependencies]

@@ -1,6 +1,6 @@
-use intent_driven_development::planner::generate_workspace;
-use intent_driven_development::scanner::scan_repo;
-use intent_driven_development::validation::validate_workspace;
+use rusty_idd_core::planner::generate_workspace;
+use rusty_idd_core::scanner::scan_repo;
+use rusty_idd_core::validation::validate_workspace;
 use std::fs;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-NAME="intent-driven-development"
+NAME="rusty-idd-core"
 OUT="/mnt/data/${NAME}-v2.zip"
 cd "$(dirname "$ROOT")"
 zip -r "$OUT" "$(basename "$ROOT")" \
