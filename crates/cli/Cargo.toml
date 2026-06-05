@@ -1,0 +1,27 @@
+[package]
+name = "rusty-idd-cli"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "The unified `rusty-idd` CLI: wires the core (idd), spec engine, runner, and TUI behind one clap binary."
+
+[[bin]]
+name = "rusty-idd"
+path = "src/main.rs"
+
+[lib]
+name = "rusty_idd_cli"
+path = "src/lib.rs"
+
+[dependencies]
+# The unification seam: depend ON the existing crates, add deps only HERE
+# (the core crate stays std-only / zero-dep — the drift gate enforces this).
+clap = { version = "4", features = ["derive"] }
+serde_json = "1"
+intent-driven-development = { path = "../core" }
+rusty-idd-spec = { path = "../spec" }
+openspec-runner = { path = "../runner" }
+openspec-tui = { path = "../tui" }
+
+[dev-dependencies]
+tempfile = "3"
