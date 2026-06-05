@@ -1,0 +1,12 @@
+# idd-merge-loop durable state.
+#
+# Only the loop's continuity files are committed, so a fresh process / cold
+# restart resumes from disk with zero loss. Everything else here is transient:
+# per-run runner logs (ralph-run-*.log), runtime sentinels (DONE / STOP /
+# NEEDS-HUMAN), and the orchestrator's per-slice audit intermediates
+# (0{1,2,3,4}_*.md) — those stay untracked (audit trail, not source).
+*
+!.gitignore
+!backlog.md
+!loop_state.md
+!HANDOFF.md
