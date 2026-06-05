@@ -12,14 +12,14 @@ The build order the `merge-orchestrator` harness executes (one slice per loop of
 | 3b | **Fix tui CWD-race flake** (serialize `set_current_dir` tests) | fix | ✅ done | `cargo test --workspace` green multi-threaded | revert data.rs |
 | 5 | **fmt + clippy cleanup** (format the tree; flip CI fmt/clippy to blocking) | refactor | ✅ done | `cargo fmt --all --check` + `clippy --workspace -D warnings` clean; CI blocking | — |
 | 4 | **Split `crates/tui` → `crates/runner` + `crates/tui`** | refactor | ✅ done | `crates/runner` lib (runner/config/data); tui depends on it; `--workspace` green | re-merge |
-| 6 | **Port lifecycle → `crates/spec`** | lifecycle-port | ⏳ next (the crux) | golden-fixture conformance vs `bunx openspec` (`validate --json`, `archive`) | drop `crates/spec` |
+| 6 | **Port lifecycle → `crates/spec`** | lifecycle-port | ✅ done | semantic golden conformance (parse→merge→emit→re-parse == oracle `03`); validate JSON matches `04`/`05`; transactional merge | drop `crates/spec` |
 | 7 | **Unified `crates/cli`** | migration | ⏳ | parity: each `rusty-idd <verb>` matches the prior per-tool behavior | keep old entrypoints |
 | 8 | **Retire old entrypoints + oracle** | migration | ⏳ | parity proven for all verbs; no Node in shipped product | restore shims |
 
 ## Notes
 - **Slices 2–3 kept each existing crate whole** (a directory move, not a code refactor). `openspec-tui` became `crates/tui` as one crate; the `runner`/`tui` split (slice 4) is a genuine refactor, not a move, so it was deferred rather than smuggled into a structural slice.
 - **The fmt/clippy cleanup (slice 5)** is ~1700 lines of mechanical reformat plus clippy fixes across both crates (assembled from separate upstreams; never linted together). It is its own reviewable PR; until then root CI runs fmt/clippy **non-blocking**.
-- **Slice 6 is the crux** and the only high-effort piece; it is test-driven by the oracle fixtures captured in slice 0.
+- **Slice 6 (`crates/spec`)** built the engine CORE: pure `model` + comrak `parse`/`emit` + transactional `merge` (MODIFIED=whole-block) + `validate` + `archive` orchestration, with semantic golden tests. **Deferred to slice 7+** (noted in `lib.rs`): `schema/` artifact DAG, `scaffold/` (minijinja), `adr/`, and `cli/` (clap). **Byte-exact** parity with the oracle's irregular serializer is a documented **non-goal** — the gate is semantic-model equality (a thin blank-line post-pass in `emit_spec` could add byte parity later if ever needed).
 - **Deprecate-before-delete** holds across the epic: old per-tool entrypoints stay callable until slice 7 proves parity; slice 8 removes them only after.
 
 ## Open sequencing question

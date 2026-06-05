@@ -13,5 +13,6 @@ resolver = "3"
 members = [
     "crates/core",
     "crates/runner",
+    "crates/spec",
     "crates/tui",
 ]
