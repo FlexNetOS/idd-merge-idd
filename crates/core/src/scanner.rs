@@ -1,4 +1,6 @@
-use crate::env_contract::{extract_env_keys_from_dotenv, extract_secret_refs, implied_tool_reference};
+use crate::env_contract::{
+    extract_env_keys_from_dotenv, extract_secret_refs, implied_tool_reference,
+};
 use crate::fs_utils::{read_to_string_lossy, relative_path, stable_walk};
 use crate::model::{FileCategory, FileRecord, RepoInventory, SecretSource};
 use std::collections::BTreeSet;
@@ -93,8 +95,12 @@ pub fn scan_repo(path: impl AsRef<Path>) -> Result<RepoInventory, String> {
     inventory.security_files = security_files.into_iter().collect();
     inventory.env_keys = env_keys.into_iter().collect();
     inventory.files.sort_by(|a, b| a.path.cmp(&b.path));
-    inventory.secret_refs.sort_by(|a, b| a.file.cmp(&b.file).then(a.key.cmp(&b.key)));
-    inventory.secret_refs.dedup_by(|a, b| a.file == b.file && a.key == b.key && a.source == b.source);
+    inventory
+        .secret_refs
+        .sort_by(|a, b| a.file.cmp(&b.file).then(a.key.cmp(&b.key)));
+    inventory
+        .secret_refs
+        .dedup_by(|a, b| a.file == b.file && a.key == b.key && a.source == b.source);
     Ok(inventory)
 }
 
@@ -106,22 +112,51 @@ pub fn classify_file(path: &str, ext: Option<&str>) -> FileCategory {
         .unwrap_or(path)
         .to_ascii_lowercase();
 
-    if lower.starts_with("ai_merge/") || lower.starts_with(".idd/") || file_name == "agents.md" || lower == ".github/copilot-instructions.md" {
+    if lower.starts_with("ai_merge/")
+        || lower.starts_with(".idd/")
+        || file_name == "agents.md"
+        || lower == ".github/copilot-instructions.md"
+    {
         return FileCategory::AgentControl;
     }
     if lower.starts_with(".github/workflows/") || lower.contains("/.github/workflows/") {
         return FileCategory::Workflow;
     }
-    if matches!(file_name.as_str(), "security.md" | "codeowners" | "dependabot.yml" | "dependabot.yaml") {
+    if matches!(
+        file_name.as_str(),
+        "security.md" | "codeowners" | "dependabot.yml" | "dependabot.yaml"
+    ) {
         return FileCategory::Security;
     }
     if file_name.starts_with(".env") && file_name != ".env.example" {
         return FileCategory::SecretCandidate;
     }
-    if matches!(file_name.as_str(), "cargo.lock" | "package-lock.json" | "pnpm-lock.yaml" | "yarn.lock" | "bun.lockb" | "bun.lock" | "uv.lock" | "poetry.lock" | "go.sum") {
+    if matches!(
+        file_name.as_str(),
+        "cargo.lock"
+            | "package-lock.json"
+            | "pnpm-lock.yaml"
+            | "yarn.lock"
+            | "bun.lockb"
+            | "bun.lock"
+            | "uv.lock"
+            | "poetry.lock"
+            | "go.sum"
+    ) {
         return FileCategory::Lockfile;
     }
-    if matches!(file_name.as_str(), "cargo.toml" | "package.json" | "pyproject.toml" | "go.mod" | "flake.nix" | "mise.toml" | "justfile" | "makefile" | "dockerfile") {
+    if matches!(
+        file_name.as_str(),
+        "cargo.toml"
+            | "package.json"
+            | "pyproject.toml"
+            | "go.mod"
+            | "flake.nix"
+            | "mise.toml"
+            | "justfile"
+            | "makefile"
+            | "dockerfile"
+    ) {
         return FileCategory::Build;
     }
     if lower.contains("test") || lower.contains("spec") || lower.starts_with("tests/") {
@@ -130,7 +165,17 @@ pub fn classify_file(path: &str, ext: Option<&str>) -> FileCategory {
     if matches!(ext, Some("md") | Some("mdx") | Some("rst") | Some("txt")) {
         return FileCategory::Documentation;
     }
-    if matches!(ext, Some("toml") | Some("yaml") | Some("yml") | Some("json") | Some("jsonc") | Some("ini") | Some("conf") | Some("hcl")) {
+    if matches!(
+        ext,
+        Some("toml")
+            | Some("yaml")
+            | Some("yml")
+            | Some("json")
+            | Some("jsonc")
+            | Some("ini")
+            | Some("conf")
+            | Some("hcl")
+    ) {
         return FileCategory::Config;
     }
     if language_from_extension(ext).is_some() {
@@ -165,18 +210,42 @@ fn language_from_extension(ext: Option<&str>) -> Option<&'static str> {
 fn detect_package_manager(path: &str, managers: &mut BTreeSet<String>) {
     let lower = path.to_ascii_lowercase();
     match lower.as_str() {
-        "cargo.toml" => { managers.insert("cargo".to_string()); }
-        "package.json" => { managers.insert("node".to_string()); }
-        "pnpm-lock.yaml" => { managers.insert("pnpm".to_string()); }
-        "yarn.lock" => { managers.insert("yarn".to_string()); }
-        "bun.lockb" | "bun.lock" => { managers.insert("bun".to_string()); }
-        "pyproject.toml" => { managers.insert("python/pyproject".to_string()); }
-        "uv.lock" => { managers.insert("uv".to_string()); }
-        "poetry.lock" => { managers.insert("poetry".to_string()); }
-        "go.mod" => { managers.insert("go".to_string()); }
-        "flake.nix" => { managers.insert("nix".to_string()); }
-        "mise.toml" => { managers.insert("mise".to_string()); }
-        ".envrc" => { managers.insert("direnv".to_string()); }
+        "cargo.toml" => {
+            managers.insert("cargo".to_string());
+        }
+        "package.json" => {
+            managers.insert("node".to_string());
+        }
+        "pnpm-lock.yaml" => {
+            managers.insert("pnpm".to_string());
+        }
+        "yarn.lock" => {
+            managers.insert("yarn".to_string());
+        }
+        "bun.lockb" | "bun.lock" => {
+            managers.insert("bun".to_string());
+        }
+        "pyproject.toml" => {
+            managers.insert("python/pyproject".to_string());
+        }
+        "uv.lock" => {
+            managers.insert("uv".to_string());
+        }
+        "poetry.lock" => {
+            managers.insert("poetry".to_string());
+        }
+        "go.mod" => {
+            managers.insert("go".to_string());
+        }
+        "flake.nix" => {
+            managers.insert("nix".to_string());
+        }
+        "mise.toml" => {
+            managers.insert("mise".to_string());
+        }
+        ".envrc" => {
+            managers.insert("direnv".to_string());
+        }
         _ => {}
     }
 }
@@ -195,7 +264,7 @@ fn detect_entrypoint(path: &str, entrypoints: &mut BTreeSet<String>) {
         "cmd/main.go",
         "main.go",
     ];
-    if candidates.iter().any(|candidate| path == *candidate) {
+    if candidates.contains(&path) {
         entrypoints.insert(path.to_string());
     }
 }
@@ -215,10 +284,22 @@ mod tests {
 
     #[test]
     fn classify_common_files() {
-        assert_eq!(classify_file("src/main.rs", Some("rs")), FileCategory::Source);
-        assert_eq!(classify_file("Cargo.toml", Some("toml")), FileCategory::Build);
-        assert_eq!(classify_file(".github/workflows/ci.yml", Some("yml")), FileCategory::Workflow);
+        assert_eq!(
+            classify_file("src/main.rs", Some("rs")),
+            FileCategory::Source
+        );
+        assert_eq!(
+            classify_file("Cargo.toml", Some("toml")),
+            FileCategory::Build
+        );
+        assert_eq!(
+            classify_file(".github/workflows/ci.yml", Some("yml")),
+            FileCategory::Workflow
+        );
         assert_eq!(classify_file(".env", None), FileCategory::SecretCandidate);
-        assert_eq!(classify_file("AGENTS.md", Some("md")), FileCategory::AgentControl);
+        assert_eq!(
+            classify_file("AGENTS.md", Some("md")),
+            FileCategory::AgentControl
+        );
     }
 }

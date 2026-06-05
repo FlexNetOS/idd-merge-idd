@@ -6,7 +6,10 @@ pub fn extract_env_keys_from_dotenv(content: &str) -> Vec<String> {
     let mut keys = BTreeSet::new();
     for raw_line in content.lines() {
         let line = raw_line.trim();
-        if line.is_empty() || line.starts_with('#') || line.starts_with("export ") && !line.contains('=') {
+        if line.is_empty()
+            || line.starts_with('#')
+            || line.starts_with("export ") && !line.contains('=')
+        {
             continue;
         }
         let line = line.strip_prefix("export ").unwrap_or(line);
@@ -23,27 +26,117 @@ pub fn extract_env_keys_from_dotenv(content: &str) -> Vec<String> {
 pub fn extract_secret_refs(file: &str, content: &str) -> Vec<SecretReference> {
     let mut refs = Vec::new();
 
-    refs.extend(extract_after_marker(file, content, "${{ secrets.", SecretSource::GitHubActionsSecret));
-    refs.extend(extract_bracket_marker(file, content, "${{ secrets[", SecretSource::GitHubActionsSecret));
-    refs.extend(extract_after_marker(file, content, "${{ vars.", SecretSource::GitHubActionsVariable));
-    refs.extend(extract_bracket_marker(file, content, "${{ vars[", SecretSource::GitHubActionsVariable));
-    refs.extend(extract_after_marker(file, content, "${{ env.", SecretSource::GitHubActionsEnv));
-    refs.extend(extract_bracket_marker(file, content, "${{ env[", SecretSource::GitHubActionsEnv));
+    refs.extend(extract_after_marker(
+        file,
+        content,
+        "${{ secrets.",
+        SecretSource::GitHubActionsSecret,
+    ));
+    refs.extend(extract_bracket_marker(
+        file,
+        content,
+        "${{ secrets[",
+        SecretSource::GitHubActionsSecret,
+    ));
+    refs.extend(extract_after_marker(
+        file,
+        content,
+        "${{ vars.",
+        SecretSource::GitHubActionsVariable,
+    ));
+    refs.extend(extract_bracket_marker(
+        file,
+        content,
+        "${{ vars[",
+        SecretSource::GitHubActionsVariable,
+    ));
+    refs.extend(extract_after_marker(
+        file,
+        content,
+        "${{ env.",
+        SecretSource::GitHubActionsEnv,
+    ));
+    refs.extend(extract_bracket_marker(
+        file,
+        content,
+        "${{ env[",
+        SecretSource::GitHubActionsEnv,
+    ));
 
-    refs.extend(extract_after_marker(file, content, "process.env.", SecretSource::ProcessEnv));
-    refs.extend(extract_bracket_marker(file, content, "process.env[", SecretSource::ProcessEnv));
-    refs.extend(extract_after_marker(file, content, "import.meta.env.", SecretSource::ImportMetaEnv));
-    refs.extend(extract_bracket_marker(file, content, "import.meta.env[", SecretSource::ImportMetaEnv));
+    refs.extend(extract_after_marker(
+        file,
+        content,
+        "process.env.",
+        SecretSource::ProcessEnv,
+    ));
+    refs.extend(extract_bracket_marker(
+        file,
+        content,
+        "process.env[",
+        SecretSource::ProcessEnv,
+    ));
+    refs.extend(extract_after_marker(
+        file,
+        content,
+        "import.meta.env.",
+        SecretSource::ImportMetaEnv,
+    ));
+    refs.extend(extract_bracket_marker(
+        file,
+        content,
+        "import.meta.env[",
+        SecretSource::ImportMetaEnv,
+    ));
 
-    refs.extend(extract_quoted_arg(file, content, "std::env::var(", SecretSource::RustEnvVar));
-    refs.extend(extract_quoted_arg(file, content, "std::env::var_os(", SecretSource::RustEnvVar));
-    refs.extend(extract_quoted_arg(file, content, "env::var(", SecretSource::RustEnvVar));
-    refs.extend(extract_quoted_arg(file, content, "env::var_os(", SecretSource::RustEnvVar));
-    refs.extend(extract_quoted_arg(file, content, "Deno.env.get(", SecretSource::DenoEnv));
+    refs.extend(extract_quoted_arg(
+        file,
+        content,
+        "std::env::var(",
+        SecretSource::RustEnvVar,
+    ));
+    refs.extend(extract_quoted_arg(
+        file,
+        content,
+        "std::env::var_os(",
+        SecretSource::RustEnvVar,
+    ));
+    refs.extend(extract_quoted_arg(
+        file,
+        content,
+        "env::var(",
+        SecretSource::RustEnvVar,
+    ));
+    refs.extend(extract_quoted_arg(
+        file,
+        content,
+        "env::var_os(",
+        SecretSource::RustEnvVar,
+    ));
+    refs.extend(extract_quoted_arg(
+        file,
+        content,
+        "Deno.env.get(",
+        SecretSource::DenoEnv,
+    ));
 
-    refs.extend(extract_bracket_marker(file, content, "os.environ[", SecretSource::PythonEnvVar));
-    refs.extend(extract_quoted_arg(file, content, "os.getenv(", SecretSource::PythonEnvVar));
-    refs.extend(extract_quoted_arg(file, content, "os.environ.get(", SecretSource::PythonEnvVar));
+    refs.extend(extract_bracket_marker(
+        file,
+        content,
+        "os.environ[",
+        SecretSource::PythonEnvVar,
+    ));
+    refs.extend(extract_quoted_arg(
+        file,
+        content,
+        "os.getenv(",
+        SecretSource::PythonEnvVar,
+    ));
+    refs.extend(extract_quoted_arg(
+        file,
+        content,
+        "os.environ.get(",
+        SecretSource::PythonEnvVar,
+    ));
 
     refs.extend(extract_tooling_markers(file, content));
     dedup_refs(refs)
@@ -60,13 +153,22 @@ pub fn implied_tool_reference(file: &str) -> Option<SecretReference> {
     let source = match file_name.as_str() {
         ".sops.yaml" | ".sops.yml" | "sops.yaml" | "sops.yml" => Some(SecretSource::Sops),
         ".infisical.json" | "infisical.json" | "infisical.toml" => Some(SecretSource::Infisical),
-        "doppler.yaml" | "doppler.yml" | ".doppler.yaml" | ".doppler.yml" => Some(SecretSource::Doppler),
+        "doppler.yaml" | "doppler.yml" | ".doppler.yaml" | ".doppler.yml" => {
+            Some(SecretSource::Doppler)
+        }
         ".envrc" => Some(SecretSource::Direnv),
         "mise.toml" | ".mise.toml" => Some(SecretSource::MiseEnv),
-        _ if lower.ends_with("vault.hcl") || lower.contains("/vault/") || lower.contains("/openbao/") => {
+        _ if lower.ends_with("vault.hcl")
+            || lower.contains("/vault/")
+            || lower.contains("/openbao/") =>
+        {
             Some(SecretSource::VaultOrOpenBao)
         }
-        _ if lower.ends_with("docker-compose.yml") || lower.ends_with("docker-compose.yaml") || lower.ends_with("compose.yml") || lower.ends_with("compose.yaml") => {
+        _ if lower.ends_with("docker-compose.yml")
+            || lower.ends_with("docker-compose.yaml")
+            || lower.ends_with("compose.yml")
+            || lower.ends_with("compose.yaml") =>
+        {
             Some(SecretSource::DockerComposeEnvFile)
         }
         _ => None,
@@ -74,7 +176,10 @@ pub fn implied_tool_reference(file: &str) -> Option<SecretReference> {
 
     Some(SecretReference {
         file: file.to_string(),
-        key: source.to_string().to_ascii_uppercase().replace('-', "_").replace('.', "_").replace('/', "_"),
+        key: source
+            .to_string()
+            .to_ascii_uppercase()
+            .replace(['-', '.', '/'], "_"),
         source,
     })
 }
@@ -199,7 +304,10 @@ fn extract_tooling_markers(file: &str, content: &str) -> Vec<SecretReference> {
         if lower.contains(needle) {
             refs.push(SecretReference {
                 file: file.to_string(),
-                key: source.to_string().to_ascii_uppercase().replace('-', "_").replace('.', "_"),
+                key: source
+                    .to_string()
+                    .to_ascii_uppercase()
+                    .replace(['-', '.'], "_"),
                 source,
             });
         }
@@ -237,7 +345,8 @@ mod tests {
 
     #[test]
     fn extracts_dotenv_keys() {
-        let keys = extract_env_keys_from_dotenv("export API_URL=https://x\nTOKEN=abc\n#COMMENT=x\n");
+        let keys =
+            extract_env_keys_from_dotenv("export API_URL=https://x\nTOKEN=abc\n#COMMENT=x\n");
         assert_eq!(keys, vec!["API_URL".to_string(), "TOKEN".to_string()]);
     }
 

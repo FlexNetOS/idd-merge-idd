@@ -4,12 +4,9 @@ name: ci
 # Relocated from intent-driven-development/.github/ (GitHub only runs workflows
 # under the repo-root .github/) and upgraded to run across the whole workspace.
 #
-# Blocking gates: the Rust-native drift gate, a workspace build, and the test
-# suite. fmt/clippy run as NON-BLOCKING reporters for now: the two crates were
-# assembled from separate upstreams and are not yet rustfmt/clippy-clean to the
-# current toolchain (a ~1700-line mechanical cleanup). A dedicated "fmt + clippy
-# cleanup" slice will format the tree and flip these to blocking (remove the
-# `continue-on-error` lines). See docs/rusty-idd/slice-sequence.md.
+# All gates are blocking: the Rust-native drift gate, build, test, fmt, and
+# clippy (-D warnings). The fmt+clippy cleanup slice formatted both crates and
+# cleared all lints, so these are now enforced.
 
 on:
   pull_request:
@@ -34,9 +31,7 @@ jobs:
         run: cargo build --workspace --locked
       - name: Test (workspace)
         run: cargo test --workspace --locked
-      - name: Format (non-blocking until cleanup slice)
-        continue-on-error: true
+      - name: Format
         run: cargo fmt --all -- --check
-      - name: Clippy (non-blocking until cleanup slice)
-        continue-on-error: true
+      - name: Clippy
         run: cargo clippy --workspace --all-targets --all-features -- -D warnings

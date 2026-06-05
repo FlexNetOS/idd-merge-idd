@@ -14,7 +14,8 @@ use crate::app::{App, ChangeTab, ConfigField, Screen};
 
 pub fn draw(frame: &mut Frame, app: &App) {
     let (content_area, status_area) = if let Some(ref impl_state) = app.implementation {
-        let chunks = Layout::vertical([Constraint::Min(0), Constraint::Length(4)]).split(frame.area());
+        let chunks =
+            Layout::vertical([Constraint::Min(0), Constraint::Length(4)]).split(frame.area());
         draw_status_bar(frame, impl_state, app.batch.as_ref(), chunks[1]);
         (chunks[0], Some(chunks[1]))
     } else {
@@ -29,7 +30,15 @@ pub fn draw(frame: &mut Frame, app: &App) {
             error,
             tab,
             change_deps,
-        } => draw_change_list(frame, changes, *selected, error.as_deref(), tab, change_deps, content_area),
+        } => draw_change_list(
+            frame,
+            changes,
+            *selected,
+            error.as_deref(),
+            tab,
+            change_deps,
+            content_area,
+        ),
         Screen::ArtifactMenu {
             change_name,
             items,
@@ -52,28 +61,49 @@ pub fn draw(frame: &mut Frame, app: &App) {
             cursor_position,
             focused_field,
             editing,
-        } => draw_config_screen(frame, &ConfigScreenParams {
-            command, prompt, post_implementation_prompt, interactive_command,
-            run_finished_command, cursor_position: *cursor_position,
-            focused_field, editing: *editing,
-        }, content_area),
+        } => draw_config_screen(
+            frame,
+            &ConfigScreenParams {
+                command,
+                prompt,
+                post_implementation_prompt,
+                interactive_command,
+                run_finished_command,
+                cursor_position: *cursor_position,
+                focused_field,
+                editing: *editing,
+            },
+            content_area,
+        ),
         Screen::DependencyView {
             change_name,
             dependencies,
             selected,
             run_mode,
             ..
-        } => draw_dependency_view(frame, change_name, dependencies, *selected, run_mode, content_area),
+        } => draw_dependency_view(
+            frame,
+            change_name,
+            dependencies,
+            *selected,
+            run_mode,
+            content_area,
+        ),
         Screen::DependencyAdd {
             change_name,
             available_changes,
             selected,
             ..
-        } => draw_dependency_add(frame, change_name, available_changes, *selected, content_area),
-        Screen::DependencyGraph {
-            graph_text,
-            scroll,
-        } => draw_dependency_graph(frame, graph_text, *scroll, content_area),
+        } => draw_dependency_add(
+            frame,
+            change_name,
+            available_changes,
+            *selected,
+            content_area,
+        ),
+        Screen::DependencyGraph { graph_text, scroll } => {
+            draw_dependency_graph(frame, graph_text, *scroll, content_area)
+        }
         Screen::RunAllSelection {
             entries,
             selected,
@@ -137,11 +167,7 @@ fn draw_change_list(
         };
         let paragraph = Paragraph::new(empty_msg)
             .style(Style::default().fg(Color::DarkGray))
-            .block(
-                Block::default()
-                    .title(title)
-                    .borders(Borders::ALL),
-            );
+            .block(Block::default().title(title).borders(Borders::ALL));
         frame.render_widget(paragraph, area);
         return;
     }
@@ -165,10 +191,7 @@ fn draw_change_list(
 
             let mut spans = vec![
                 Span::styled(&change.name, style),
-                Span::styled(
-                    progress,
-                    Style::default().fg(Color::DarkGray),
-                ),
+                Span::styled(progress, Style::default().fg(Color::DarkGray)),
             ];
 
             if let Some(deps) = change_deps.get(&change.name)
@@ -196,13 +219,20 @@ fn draw_change_list(
         })
         .collect();
 
-    let mut bottom_hints = vec![
-        Span::styled(" [C] Config ", Style::default().fg(Color::DarkGray)),
-    ];
+    let mut bottom_hints = vec![Span::styled(
+        " [C] Config ",
+        Style::default().fg(Color::DarkGray),
+    )];
     if *tab == ChangeTab::Active {
-        bottom_hints.push(Span::styled("[I] Interactive ", Style::default().fg(Color::DarkGray)));
+        bottom_hints.push(Span::styled(
+            "[I] Interactive ",
+            Style::default().fg(Color::DarkGray),
+        ));
     }
-    bottom_hints.push(Span::styled("[q] Quit ", Style::default().fg(Color::DarkGray)));
+    bottom_hints.push(Span::styled(
+        "[q] Quit ",
+        Style::default().fg(Color::DarkGray),
+    ));
 
     let list = List::new(items).block(
         Block::default()
@@ -220,7 +250,6 @@ fn draw_artifact_menu(
     selected: usize,
     area: Rect,
 ) {
-
     let list_items: Vec<ListItem> = items
         .iter()
         .enumerate()
@@ -257,8 +286,14 @@ fn draw_artifact_menu(
     frame.render_widget(list, area);
 }
 
-pub fn draw_artifact_view(frame: &mut Frame, title: &str, content: &str, scroll: usize, is_plain_text: bool, area: Rect) {
-
+pub fn draw_artifact_view(
+    frame: &mut Frame,
+    title: &str,
+    content: &str,
+    scroll: usize,
+    is_plain_text: bool,
+    area: Rect,
+) {
     let text = if is_plain_text {
         ratatui::text::Text::from(content)
     } else {
@@ -271,12 +306,7 @@ pub fn draw_artifact_view(frame: &mut Frame, title: &str, content: &str, scroll:
         .scroll((scroll as u16, 0))
         .block(
             Block::default()
-                .title(format!(
-                    " {} [{}/{}] ",
-                    title,
-                    scroll + 1,
-                    total_lines
-                ))
+                .title(format!(" {} [{}/{}] ", title, scroll + 1, total_lines))
                 .title_bottom(Line::from(vec![
                     Span::styled(" [C] Config ", Style::default().fg(Color::DarkGray)),
                     Span::styled("[Esc] Back ", Style::default().fg(Color::DarkGray)),
@@ -297,11 +327,7 @@ pub struct ConfigScreenParams<'a> {
     pub editing: bool,
 }
 
-pub fn draw_config_screen(
-    frame: &mut Frame,
-    params: &ConfigScreenParams,
-    area: Rect,
-) {
+pub fn draw_config_screen(frame: &mut Frame, params: &ConfigScreenParams, area: Rect) {
     let command = params.command;
     let prompt = params.prompt;
     let post_implementation_prompt = params.post_implementation_prompt;
@@ -312,7 +338,7 @@ pub fn draw_config_screen(
     let editing = params.editing;
     let chunks = Layout::vertical([
         Constraint::Length(3), // Command field
-        Constraint::Min(3),   // Prompt preview
+        Constraint::Min(3),    // Prompt preview
         Constraint::Length(3), // Post-implementation prompt
         Constraint::Length(3), // Interactive command
         Constraint::Length(3), // Run finished command
@@ -334,7 +360,9 @@ pub fn draw_config_screen(
     let cmd_text = if editing && *focused_field == ConfigField::Command {
         // Show cursor only in edit mode
         let before = &command[..cursor_position];
-        let cursor_char = command.get(cursor_position..cursor_position + 1).unwrap_or(" ");
+        let cursor_char = command
+            .get(cursor_position..cursor_position + 1)
+            .unwrap_or(" ");
         let after = if cursor_position < command.len() {
             &command[cursor_position + 1..]
         } else {
@@ -344,9 +372,7 @@ pub fn draw_config_screen(
             Span::raw(before),
             Span::styled(
                 cursor_char,
-                Style::default()
-                    .fg(Color::Black)
-                    .bg(Color::White),
+                Style::default().fg(Color::Black).bg(Color::White),
             ),
             Span::raw(after),
         ])
@@ -421,7 +447,9 @@ pub fn draw_config_screen(
 
     let interactive_text = if editing && *focused_field == ConfigField::InteractiveCommand {
         let before = &interactive_command[..cursor_position];
-        let cursor_char = interactive_command.get(cursor_position..cursor_position + 1).unwrap_or(" ");
+        let cursor_char = interactive_command
+            .get(cursor_position..cursor_position + 1)
+            .unwrap_or(" ");
         let after = if cursor_position < interactive_command.len() {
             &interactive_command[cursor_position + 1..]
         } else {
@@ -431,9 +459,7 @@ pub fn draw_config_screen(
             Span::raw(before),
             Span::styled(
                 cursor_char,
-                Style::default()
-                    .fg(Color::Black)
-                    .bg(Color::White),
+                Style::default().fg(Color::Black).bg(Color::White),
             ),
             Span::raw(after),
         ])
@@ -457,7 +483,9 @@ pub fn draw_config_screen(
 
     let run_finished_text = if editing && *focused_field == ConfigField::RunFinishedCommand {
         let before = &run_finished_command[..cursor_position];
-        let cursor_char = run_finished_command.get(cursor_position..cursor_position + 1).unwrap_or(" ");
+        let cursor_char = run_finished_command
+            .get(cursor_position..cursor_position + 1)
+            .unwrap_or(" ");
         let after = if cursor_position < run_finished_command.len() {
             &run_finished_command[cursor_position + 1..]
         } else {
@@ -467,14 +495,15 @@ pub fn draw_config_screen(
             Span::raw(before),
             Span::styled(
                 cursor_char,
-                Style::default()
-                    .fg(Color::Black)
-                    .bg(Color::White),
+                Style::default().fg(Color::Black).bg(Color::White),
             ),
             Span::raw(after),
         ])
     } else if run_finished_command.is_empty() {
-        Line::from(Span::styled("(disabled)", Style::default().fg(Color::DarkGray)))
+        Line::from(Span::styled(
+            "(disabled)",
+            Style::default().fg(Color::DarkGray),
+        ))
     } else {
         Line::from(run_finished_command)
     };
@@ -487,9 +516,10 @@ pub fn draw_config_screen(
 
     // Keybinding hints
     let mut hints = if editing {
-        vec![
-            Span::styled(" [Esc] Done editing ", Style::default().fg(Color::DarkGray)),
-        ]
+        vec![Span::styled(
+            " [Esc] Done editing ",
+            Style::default().fg(Color::DarkGray),
+        )]
     } else {
         vec![
             Span::styled(" [Enter] Edit ", Style::default().fg(Color::DarkGray)),
@@ -633,11 +663,7 @@ pub fn draw_status_bar(
 
     // Build batch suffix for line 1 (e.g., "  Change 2/4  1 failed, 2 skipped")
     let batch_suffix = if let Some(batch) = batch {
-        let change_progress = format!(
-            "  Change {}/{}",
-            batch.current_index + 1,
-            batch.total()
-        );
+        let change_progress = format!("  Change {}/{}", batch.current_index + 1, batch.total());
         let mut parts = Vec::new();
         let failed_count = batch.failed.len();
         let skipped_count = batch.skipped.len();
@@ -665,11 +691,9 @@ pub fn draw_status_bar(
         .saturating_sub(prefix.len())
         .saturating_sub(suffix.len())
         .saturating_sub(batch_suffix.len());
-    let filled = if impl_state.total > 0 {
-        (bar_space as u32 * impl_state.completed / impl_state.total) as usize
-    } else {
-        0
-    };
+    let filled = (bar_space as u32 * impl_state.completed)
+        .checked_div(impl_state.total)
+        .unwrap_or(0) as usize;
     let empty = bar_space.saturating_sub(filled);
 
     let mut line1_spans = vec![
@@ -706,20 +730,19 @@ pub fn draw_status_bar(
 pub fn draw_dependency_graph(frame: &mut Frame, graph_text: &str, scroll: usize, area: Rect) {
     let total_lines = graph_text.lines().count();
 
-    let paragraph = Paragraph::new(graph_text)
-        .scroll((scroll as u16, 0))
-        .block(
-            Block::default()
-                .title(format!(
-                    " Dependency Graph [{}/{}] ",
-                    scroll + 1,
-                    total_lines.max(1)
-                ))
-                .title_bottom(Line::from(vec![
-                    Span::styled(" [Esc] Back ", Style::default().fg(Color::DarkGray)),
-                ]))
-                .borders(Borders::ALL),
-        );
+    let paragraph = Paragraph::new(graph_text).scroll((scroll as u16, 0)).block(
+        Block::default()
+            .title(format!(
+                " Dependency Graph [{}/{}] ",
+                scroll + 1,
+                total_lines.max(1)
+            ))
+            .title_bottom(Line::from(vec![Span::styled(
+                " [Esc] Back ",
+                Style::default().fg(Color::DarkGray),
+            )]))
+            .borders(Borders::ALL),
+    );
     frame.render_widget(paragraph, area);
 }
 
@@ -736,9 +759,10 @@ pub fn draw_run_all_selection(
             .block(
                 Block::default()
                     .title(" Run All - Select Changes ")
-                    .title_bottom(Line::from(vec![
-                        Span::styled(" [Esc] Cancel ", Style::default().fg(Color::DarkGray)),
-                    ]))
+                    .title_bottom(Line::from(vec![Span::styled(
+                        " [Esc] Cancel ",
+                        Style::default().fg(Color::DarkGray),
+                    )]))
                     .borders(Borders::ALL),
             );
         frame.render_widget(paragraph, area);
@@ -820,7 +844,13 @@ mod tests {
         render_artifact_view_with_mode(width, height, content, scroll, false)
     }
 
-    fn render_artifact_view_with_mode(width: u16, height: u16, content: &str, scroll: usize, is_plain_text: bool) -> String {
+    fn render_artifact_view_with_mode(
+        width: u16,
+        height: u16,
+        content: &str,
+        scroll: usize,
+        is_plain_text: bool,
+    ) -> String {
         let backend = TestBackend::new(width, height);
         let mut terminal = Terminal::new(backend).unwrap();
         terminal
@@ -852,7 +882,10 @@ mod tests {
         // With wrapping enabled, the long line should span multiple rendered lines.
         // Verify that both early and later words appear in the render.
         assert!(rendered.contains("aaa"), "First word should be visible");
-        assert!(rendered.contains("fff"), "Later word should be visible via wrapping");
+        assert!(
+            rendered.contains("fff"),
+            "Later word should be visible via wrapping"
+        );
     }
 
     #[test]
@@ -867,7 +900,10 @@ mod tests {
             .trim_start_matches('│')
             .trim_end_matches('│')
             .trim();
-        assert!(line2_content.is_empty(), "Second content line should be empty for short text");
+        assert!(
+            line2_content.is_empty(),
+            "Second content line should be empty for short text"
+        );
     }
 
     #[test]
@@ -875,8 +911,14 @@ mod tests {
         let content = "# Main Header\n\nSome body text.";
         let rendered = render_artifact_view(40, 8, content, 0);
         // Header text and body text should both be visible
-        assert!(rendered.contains("Main Header"), "Header text should be visible");
-        assert!(rendered.contains("Some body text"), "Body text should be visible");
+        assert!(
+            rendered.contains("Main Header"),
+            "Header text should be visible"
+        );
+        assert!(
+            rendered.contains("Some body text"),
+            "Body text should be visible"
+        );
 
         // Verify header has bold styling applied
         let backend = TestBackend::new(40, 8);
@@ -892,13 +934,14 @@ mod tests {
         let mut found_bold = false;
         for x in 0..40u16 {
             let cell = buffer.cell((x, 1)).unwrap();
-            if cell.symbol() == "M" {
-                if cell.modifier.contains(Modifier::BOLD) {
-                    found_bold = true;
-                }
+            if cell.symbol() == "M" && cell.modifier.contains(Modifier::BOLD) {
+                found_bold = true;
             }
         }
-        assert!(found_bold, "Header text should be rendered with bold styling");
+        assert!(
+            found_bold,
+            "Header text should be rendered with bold styling"
+        );
     }
 
     #[test]
@@ -924,7 +967,10 @@ mod tests {
         for y in 0..8u16 {
             for x in 0..40u16 {
                 let cell = buffer.cell((x, y)).unwrap();
-                if cell.symbol() == "f" && x + 1 < 40 && buffer.cell((x + 1, y)).unwrap().symbol() == "n" {
+                if cell.symbol() == "f"
+                    && x + 1 < 40
+                    && buffer.cell((x + 1, y)).unwrap().symbol() == "n"
+                {
                     // "fn" keyword found; check if it has non-default foreground color
                     if cell.fg != Color::Reset && cell.fg != Color::default() {
                         found_styled = true;
@@ -932,7 +978,10 @@ mod tests {
                 }
             }
         }
-        assert!(found_styled, "Code keyword 'fn' should have syntax highlighting (non-default color)");
+        assert!(
+            found_styled,
+            "Code keyword 'fn' should have syntax highlighting (non-default color)"
+        );
     }
 
     #[test]
@@ -941,7 +990,10 @@ mod tests {
         let content = "    indented code";
         let rendered = render_artifact_view(30, 6, content, 0);
         // The indented text should still be visible in the rendered output
-        assert!(rendered.contains("indented code"), "Code block content should be visible");
+        assert!(
+            rendered.contains("indented code"),
+            "Code block content should be visible"
+        );
     }
 
     fn render_status_bar(width: u16, height: u16, impl_state: &ImplState) -> String {
@@ -974,21 +1026,20 @@ mod tests {
         lines.join("\n")
     }
 
-    fn make_impl_state(
-        change_name: &str,
-        completed: u32,
-        total: u32,
-    ) -> ImplState {
-        use std::sync::atomic::AtomicBool;
-        use std::sync::{mpsc, Arc, Mutex};
+    fn make_impl_state(change_name: &str, completed: u32, total: u32) -> ImplState {
         use std::path::PathBuf;
+        use std::sync::atomic::AtomicBool;
+        use std::sync::{Arc, Mutex, mpsc};
 
         let (_tx, rx) = mpsc::channel();
         ImplState {
             change_name: change_name.to_string(),
             completed,
             total,
-            log_path: PathBuf::from(format!("openspec/changes/{}/implementation.log", change_name)),
+            log_path: PathBuf::from(format!(
+                "openspec/changes/{}/implementation.log",
+                change_name
+            )),
             receiver: rx,
             cancel_flag: Arc::new(AtomicBool::new(false)),
             child_handle: Arc::new(Mutex::new(None)),
@@ -999,7 +1050,10 @@ mod tests {
     fn test_status_bar_shows_change_name() {
         let state = make_impl_state("my-change", 3, 7);
         let rendered = render_status_bar(60, 4, &state);
-        assert!(rendered.contains("my-change"), "Change name should be displayed");
+        assert!(
+            rendered.contains("my-change"),
+            "Change name should be displayed"
+        );
     }
 
     #[test]
@@ -1013,8 +1067,14 @@ mod tests {
     fn test_status_bar_shows_progress_bar() {
         let state = make_impl_state("test", 5, 10);
         let rendered = render_status_bar(60, 4, &state);
-        assert!(rendered.contains("█"), "Progress bar should have filled blocks");
-        assert!(rendered.contains("░"), "Progress bar should have empty blocks");
+        assert!(
+            rendered.contains("█"),
+            "Progress bar should have filled blocks"
+        );
+        assert!(
+            rendered.contains("░"),
+            "Progress bar should have empty blocks"
+        );
         assert!(rendered.contains("50%"), "Percentage should be displayed");
     }
 
@@ -1022,14 +1082,20 @@ mod tests {
     fn test_status_bar_shows_stop_hint() {
         let state = make_impl_state("test", 0, 5);
         let rendered = render_status_bar(60, 4, &state);
-        assert!(rendered.contains("[S] Stop"), "Stop hint should be displayed");
+        assert!(
+            rendered.contains("[S] Stop"),
+            "Stop hint should be displayed"
+        );
     }
 
     #[test]
     fn test_status_bar_shows_log_path() {
         let state = make_impl_state("test", 0, 5);
         let rendered = render_status_bar(80, 4, &state);
-        assert!(rendered.contains("Log:"), "Log path label should be displayed");
+        assert!(
+            rendered.contains("Log:"),
+            "Log path label should be displayed"
+        );
         assert!(
             rendered.contains("openspec/changes/test/implementation.log"),
             "Log path should show the change-local path"
@@ -1040,15 +1106,24 @@ mod tests {
     fn test_status_bar_zero_total() {
         let state = make_impl_state("test", 0, 0);
         let rendered = render_status_bar(60, 4, &state);
-        assert!(rendered.contains("0/0"), "Zero progress should be displayed");
-        assert!(rendered.contains("0%"), "Zero percentage should be displayed");
+        assert!(
+            rendered.contains("0/0"),
+            "Zero progress should be displayed"
+        );
+        assert!(
+            rendered.contains("0%"),
+            "Zero percentage should be displayed"
+        );
     }
 
     #[test]
     fn test_status_bar_all_complete() {
         let state = make_impl_state("test", 5, 5);
         let rendered = render_status_bar(60, 4, &state);
-        assert!(rendered.contains("5/5"), "Complete progress should be displayed");
+        assert!(
+            rendered.contains("5/5"),
+            "Complete progress should be displayed"
+        );
         assert!(rendered.contains("100%"), "100% should be displayed");
     }
 
@@ -1143,7 +1218,10 @@ mod tests {
         // Without batch state, the status bar should not show any batch info
         let state = make_impl_state("test", 3, 7);
         let rendered = render_status_bar_with_batch(80, 4, &state, None);
-        assert!(rendered.contains("3/7"), "Task progress should be displayed");
+        assert!(
+            rendered.contains("3/7"),
+            "Task progress should be displayed"
+        );
         assert!(
             !rendered.contains("Change"),
             "No batch progress should be displayed without batch state"
@@ -1191,9 +1269,15 @@ mod tests {
 
         let rendered = render_draw(80, 14, &app);
         // Status bar should be visible at the bottom
-        assert!(rendered.contains("my-change"), "Status bar should show change name");
+        assert!(
+            rendered.contains("my-change"),
+            "Status bar should show change name"
+        );
         assert!(rendered.contains("2/5"), "Status bar should show progress");
-        assert!(rendered.contains("[S] Stop"), "Status bar should show stop hint");
+        assert!(
+            rendered.contains("[S] Stop"),
+            "Status bar should show stop hint"
+        );
         // Main content should also be visible
         assert!(
             rendered.contains("OpenSpec TUI"),
@@ -1250,15 +1334,7 @@ mod tests {
         terminal
             .draw(|frame| {
                 let area = frame.area();
-                draw_change_list(
-                    frame,
-                    changes,
-                    0,
-                    None,
-                    tab,
-                    deps,
-                    area,
-                );
+                draw_change_list(frame, changes, 0, None, tab, deps, area);
             })
             .unwrap();
         let buffer = terminal.backend().buffer().clone();
@@ -1329,17 +1405,32 @@ mod tests {
     fn test_plain_text_preserves_single_newlines() {
         let content = "line one\nline two\nline three";
         let rendered = render_artifact_view_with_mode(40, 8, content, 0, true);
-        assert!(rendered.contains("line one"), "First line should be visible");
-        assert!(rendered.contains("line two"), "Second line should be visible");
-        assert!(rendered.contains("line three"), "Third line should be visible");
+        assert!(
+            rendered.contains("line one"),
+            "First line should be visible"
+        );
+        assert!(
+            rendered.contains("line two"),
+            "Second line should be visible"
+        );
+        assert!(
+            rendered.contains("line three"),
+            "Third line should be visible"
+        );
     }
 
     #[test]
     fn test_plain_text_preserves_separator_lines() {
         let content = "Header\n══════════════\nContent\n──────────────";
         let rendered = render_artifact_view_with_mode(40, 8, content, 0, true);
-        assert!(rendered.contains("══════"), "Double-line separator should render verbatim");
-        assert!(rendered.contains("──────"), "Single-line separator should render verbatim");
+        assert!(
+            rendered.contains("══════"),
+            "Double-line separator should render verbatim"
+        );
+        assert!(
+            rendered.contains("──────"),
+            "Single-line separator should render verbatim"
+        );
     }
 
     #[test]
@@ -1347,7 +1438,10 @@ mod tests {
         let content = "# Header\n\nBody text";
         let rendered = render_artifact_view_with_mode(40, 8, content, 0, false);
         assert!(rendered.contains("Header"), "Header text should be visible");
-        assert!(rendered.contains("Body text"), "Body text should be visible");
+        assert!(
+            rendered.contains("Body text"),
+            "Body text should be visible"
+        );
 
         // Verify markdown formatting is applied (bold on header)
         let backend = TestBackend::new(40, 8);
@@ -1369,21 +1463,53 @@ mod tests {
         assert!(found_bold, "Header should be bold in markdown mode");
     }
 
-    fn render_config_screen(width: u16, height: u16, command: &str, prompt: &str, cursor_position: usize, focused_field: &ConfigField) -> String {
-        render_config_screen_with_editing(width, height, command, prompt, cursor_position, focused_field, false)
+    fn render_config_screen(
+        width: u16,
+        height: u16,
+        command: &str,
+        prompt: &str,
+        cursor_position: usize,
+        focused_field: &ConfigField,
+    ) -> String {
+        render_config_screen_with_editing(
+            width,
+            height,
+            command,
+            prompt,
+            cursor_position,
+            focused_field,
+            false,
+        )
     }
 
-    fn render_config_screen_with_editing(width: u16, height: u16, command: &str, prompt: &str, cursor_position: usize, focused_field: &ConfigField, editing: bool) -> String {
+    fn render_config_screen_with_editing(
+        width: u16,
+        height: u16,
+        command: &str,
+        prompt: &str,
+        cursor_position: usize,
+        focused_field: &ConfigField,
+        editing: bool,
+    ) -> String {
         let backend = TestBackend::new(width, height);
         let mut terminal = Terminal::new(backend).unwrap();
         terminal
             .draw(|frame| {
                 let area = frame.area();
-                draw_config_screen(frame, &ConfigScreenParams {
-                    command, prompt, post_implementation_prompt: "",
-                    interactive_command: "claude", run_finished_command: "",
-                    cursor_position, focused_field, editing,
-                }, area);
+                draw_config_screen(
+                    frame,
+                    &ConfigScreenParams {
+                        command,
+                        prompt,
+                        post_implementation_prompt: "",
+                        interactive_command: "claude",
+                        run_finished_command: "",
+                        cursor_position,
+                        focused_field,
+                        editing,
+                    },
+                    area,
+                );
             })
             .unwrap();
         let buffer = terminal.backend().buffer().clone();
@@ -1400,53 +1526,100 @@ mod tests {
 
     #[test]
     fn test_config_screen_shows_command() {
-        let rendered = render_config_screen(60, 15, "my-tool {prompt}", "my prompt", 0, &ConfigField::Command);
-        assert!(rendered.contains("my-tool"), "Command text should be visible");
+        let rendered = render_config_screen(
+            60,
+            15,
+            "my-tool {prompt}",
+            "my prompt",
+            0,
+            &ConfigField::Command,
+        );
+        assert!(
+            rendered.contains("my-tool"),
+            "Command text should be visible"
+        );
     }
 
     #[test]
     fn test_config_screen_shows_prompt() {
-        let rendered = render_config_screen(60, 15, "cmd {prompt}", "implement {name}", 0, &ConfigField::Command);
-        assert!(rendered.contains("implement"), "Prompt text should be visible");
+        let rendered = render_config_screen(
+            60,
+            15,
+            "cmd {prompt}",
+            "implement {name}",
+            0,
+            &ConfigField::Command,
+        );
+        assert!(
+            rendered.contains("implement"),
+            "Prompt text should be visible"
+        );
     }
 
     #[test]
     fn test_config_screen_shows_command_title() {
-        let rendered = render_config_screen(60, 15, "cmd {prompt}", "prompt", 0, &ConfigField::Command);
-        assert!(rendered.contains("Command"), "Command title should be visible");
+        let rendered =
+            render_config_screen(60, 15, "cmd {prompt}", "prompt", 0, &ConfigField::Command);
+        assert!(
+            rendered.contains("Command"),
+            "Command title should be visible"
+        );
     }
 
     #[test]
     fn test_config_screen_shows_prompt_title() {
-        let rendered = render_config_screen(60, 15, "cmd {prompt}", "prompt", 0, &ConfigField::Command);
-        assert!(rendered.contains("Prompt"), "Prompt title should be visible");
+        let rendered =
+            render_config_screen(60, 15, "cmd {prompt}", "prompt", 0, &ConfigField::Command);
+        assert!(
+            rendered.contains("Prompt"),
+            "Prompt title should be visible"
+        );
     }
 
     #[test]
     fn test_config_screen_shows_keybinding_hints() {
-        let rendered = render_config_screen(80, 15, "cmd {prompt}", "prompt", 0, &ConfigField::Command);
+        let rendered =
+            render_config_screen(80, 15, "cmd {prompt}", "prompt", 0, &ConfigField::Command);
         assert!(rendered.contains("[Tab]"), "Tab hint should be visible");
         assert!(rendered.contains("[S] Save"), "Save hint should be visible");
-        assert!(rendered.contains("[Esc] Cancel"), "Cancel hint should be visible");
-        assert!(rendered.contains("[D] Reset"), "Reset hint should be visible");
+        assert!(
+            rendered.contains("[Esc] Cancel"),
+            "Cancel hint should be visible"
+        );
+        assert!(
+            rendered.contains("[D] Reset"),
+            "Reset hint should be visible"
+        );
     }
 
     #[test]
     fn test_config_screen_warns_missing_prompt_placeholder() {
-        let rendered = render_config_screen(100, 15, "cmd --flag", "prompt", 0, &ConfigField::Command);
-        assert!(rendered.contains("missing"), "Warning should show when {{prompt}} is missing");
+        let rendered =
+            render_config_screen(100, 15, "cmd --flag", "prompt", 0, &ConfigField::Command);
+        assert!(
+            rendered.contains("missing"),
+            "Warning should show when {{prompt}} is missing"
+        );
     }
 
     #[test]
     fn test_config_screen_no_warning_with_prompt_placeholder() {
-        let rendered = render_config_screen(100, 15, "cmd {prompt}", "prompt", 0, &ConfigField::Command);
-        assert!(!rendered.contains("missing"), "No warning when {{prompt}} is present");
+        let rendered =
+            render_config_screen(100, 15, "cmd {prompt}", "prompt", 0, &ConfigField::Command);
+        assert!(
+            !rendered.contains("missing"),
+            "No warning when {{prompt}} is present"
+        );
     }
 
     #[test]
     fn test_config_screen_shows_editor_hint_when_prompt_focused() {
-        let rendered = render_config_screen(80, 15, "cmd {prompt}", "prompt", 0, &ConfigField::Prompt);
-        assert!(rendered.contains("$EDITOR"), "Editor hint should show when prompt is focused");
+        let rendered =
+            render_config_screen(80, 15, "cmd {prompt}", "prompt", 0, &ConfigField::Prompt);
+        assert!(
+            rendered.contains("$EDITOR"),
+            "Editor hint should show when prompt is focused"
+        );
     }
 
     #[test]
@@ -1471,8 +1644,14 @@ mod tests {
             config_path: std::path::PathBuf::from("/tmp/openspec-tui-test-config.yaml"),
         };
         let rendered = render_draw(60, 15, &app);
-        assert!(rendered.contains("Command"), "Config screen should render in draw()");
-        assert!(rendered.contains("claude"), "Command text should be visible");
+        assert!(
+            rendered.contains("Command"),
+            "Config screen should render in draw()"
+        );
+        assert!(
+            rendered.contains("claude"),
+            "Command text should be visible"
+        );
     }
 
     #[test]
@@ -1483,11 +1662,20 @@ mod tests {
         terminal
             .draw(|frame| {
                 let area = frame.area();
-                draw_config_screen(frame, &ConfigScreenParams {
-                    command: "cmd {prompt}", prompt: "prompt", post_implementation_prompt: "",
-                    interactive_command: "claude", run_finished_command: "",
-                    cursor_position: 0, focused_field: &ConfigField::Command, editing: false,
-                }, area);
+                draw_config_screen(
+                    frame,
+                    &ConfigScreenParams {
+                        command: "cmd {prompt}",
+                        prompt: "prompt",
+                        post_implementation_prompt: "",
+                        interactive_command: "claude",
+                        run_finished_command: "",
+                        cursor_position: 0,
+                        focused_field: &ConfigField::Command,
+                        editing: false,
+                    },
+                    area,
+                );
             })
             .unwrap();
         let buffer = terminal.backend().buffer().clone();
@@ -1499,7 +1687,10 @@ mod tests {
                 found_cursor = true;
             }
         }
-        assert!(!found_cursor, "No cursor should be visible in navigation mode");
+        assert!(
+            !found_cursor,
+            "No cursor should be visible in navigation mode"
+        );
     }
 
     #[test]
@@ -1509,11 +1700,20 @@ mod tests {
         terminal
             .draw(|frame| {
                 let area = frame.area();
-                draw_config_screen(frame, &ConfigScreenParams {
-                    command: "cmd {prompt}", prompt: "prompt", post_implementation_prompt: "",
-                    interactive_command: "claude", run_finished_command: "",
-                    cursor_position: 0, focused_field: &ConfigField::Command, editing: true,
-                }, area);
+                draw_config_screen(
+                    frame,
+                    &ConfigScreenParams {
+                        command: "cmd {prompt}",
+                        prompt: "prompt",
+                        post_implementation_prompt: "",
+                        interactive_command: "claude",
+                        run_finished_command: "",
+                        cursor_position: 0,
+                        focused_field: &ConfigField::Command,
+                        editing: true,
+                    },
+                    area,
+                );
             })
             .unwrap();
         let buffer = terminal.backend().buffer().clone();
@@ -1531,40 +1731,100 @@ mod tests {
     #[test]
     fn test_config_screen_navigation_hints() {
         let rendered = render_config_screen_with_editing(
-            100, 15, "cmd {prompt}", "prompt", 0, &ConfigField::Command, false,
+            100,
+            15,
+            "cmd {prompt}",
+            "prompt",
+            0,
+            &ConfigField::Command,
+            false,
         );
-        assert!(rendered.contains("[Enter] Edit"), "Enter hint should show in navigation mode");
-        assert!(rendered.contains("[Tab]"), "Tab hint should show in navigation mode");
-        assert!(rendered.contains("[S] Save"), "Save hint should show in navigation mode");
-        assert!(rendered.contains("[D] Reset"), "Reset hint should show in navigation mode");
-        assert!(rendered.contains("[Esc] Cancel"), "Cancel hint should show in navigation mode");
-        assert!(!rendered.contains("Done editing"), "Edit-mode hint should not show in navigation mode");
+        assert!(
+            rendered.contains("[Enter] Edit"),
+            "Enter hint should show in navigation mode"
+        );
+        assert!(
+            rendered.contains("[Tab]"),
+            "Tab hint should show in navigation mode"
+        );
+        assert!(
+            rendered.contains("[S] Save"),
+            "Save hint should show in navigation mode"
+        );
+        assert!(
+            rendered.contains("[D] Reset"),
+            "Reset hint should show in navigation mode"
+        );
+        assert!(
+            rendered.contains("[Esc] Cancel"),
+            "Cancel hint should show in navigation mode"
+        );
+        assert!(
+            !rendered.contains("Done editing"),
+            "Edit-mode hint should not show in navigation mode"
+        );
     }
 
     #[test]
     fn test_config_screen_edit_mode_hints() {
         let rendered = render_config_screen_with_editing(
-            100, 15, "cmd {prompt}", "prompt", 0, &ConfigField::Command, true,
+            100,
+            15,
+            "cmd {prompt}",
+            "prompt",
+            0,
+            &ConfigField::Command,
+            true,
         );
-        assert!(rendered.contains("[Esc] Done editing"), "Done editing hint should show in edit mode");
-        assert!(!rendered.contains("[S] Save"), "Save hint should not show in edit mode");
-        assert!(!rendered.contains("[D] Reset"), "Reset hint should not show in edit mode");
-        assert!(!rendered.contains("[Enter] Edit"), "Enter-edit hint should not show in edit mode");
+        assert!(
+            rendered.contains("[Esc] Done editing"),
+            "Done editing hint should show in edit mode"
+        );
+        assert!(
+            !rendered.contains("[S] Save"),
+            "Save hint should not show in edit mode"
+        );
+        assert!(
+            !rendered.contains("[D] Reset"),
+            "Reset hint should not show in edit mode"
+        );
+        assert!(
+            !rendered.contains("[Enter] Edit"),
+            "Enter-edit hint should not show in edit mode"
+        );
     }
 
     #[test]
     fn test_config_screen_prompt_warning_in_both_modes() {
         // Navigation mode without {prompt}
         let rendered_nav = render_config_screen_with_editing(
-            100, 15, "cmd --flag", "prompt", 0, &ConfigField::Command, false,
+            100,
+            15,
+            "cmd --flag",
+            "prompt",
+            0,
+            &ConfigField::Command,
+            false,
         );
-        assert!(rendered_nav.contains("missing"), "Warning should show in navigation mode");
+        assert!(
+            rendered_nav.contains("missing"),
+            "Warning should show in navigation mode"
+        );
 
         // Edit mode without {prompt}
         let rendered_edit = render_config_screen_with_editing(
-            100, 15, "cmd --flag", "prompt", 0, &ConfigField::Command, true,
+            100,
+            15,
+            "cmd --flag",
+            "prompt",
+            0,
+            &ConfigField::Command,
+            true,
         );
-        assert!(rendered_edit.contains("missing"), "Warning should show in edit mode");
+        assert!(
+            rendered_edit.contains("missing"),
+            "Warning should show in edit mode"
+        );
     }
 
     #[test]
@@ -1574,11 +1834,20 @@ mod tests {
         terminal
             .draw(|frame| {
                 let area = frame.area();
-                draw_config_screen(frame, &ConfigScreenParams {
-                    command: "cmd {prompt}", prompt: "prompt", post_implementation_prompt: "commit changes",
-                    interactive_command: "claude", run_finished_command: "",
-                    cursor_position: 0, focused_field: &ConfigField::Command, editing: false,
-                }, area);
+                draw_config_screen(
+                    frame,
+                    &ConfigScreenParams {
+                        command: "cmd {prompt}",
+                        prompt: "prompt",
+                        post_implementation_prompt: "commit changes",
+                        interactive_command: "claude",
+                        run_finished_command: "",
+                        cursor_position: 0,
+                        focused_field: &ConfigField::Command,
+                        editing: false,
+                    },
+                    area,
+                );
             })
             .unwrap();
         let buffer = terminal.backend().buffer().clone();
@@ -1591,8 +1860,14 @@ mod tests {
             lines.push(line.trim_end().to_string());
         }
         let rendered = lines.join("\n");
-        assert!(rendered.contains("Post-Implementation"), "Post-Implementation Prompt title should be visible");
-        assert!(rendered.contains("commit changes"), "Post-implementation prompt content should be visible");
+        assert!(
+            rendered.contains("Post-Implementation"),
+            "Post-Implementation Prompt title should be visible"
+        );
+        assert!(
+            rendered.contains("commit changes"),
+            "Post-implementation prompt content should be visible"
+        );
     }
 
     #[test]
@@ -1602,11 +1877,20 @@ mod tests {
         terminal
             .draw(|frame| {
                 let area = frame.area();
-                draw_config_screen(frame, &ConfigScreenParams {
-                    command: "cmd {prompt}", prompt: "prompt", post_implementation_prompt: "",
-                    interactive_command: "claude", run_finished_command: "",
-                    cursor_position: 0, focused_field: &ConfigField::Command, editing: false,
-                }, area);
+                draw_config_screen(
+                    frame,
+                    &ConfigScreenParams {
+                        command: "cmd {prompt}",
+                        prompt: "prompt",
+                        post_implementation_prompt: "",
+                        interactive_command: "claude",
+                        run_finished_command: "",
+                        cursor_position: 0,
+                        focused_field: &ConfigField::Command,
+                        editing: false,
+                    },
+                    area,
+                );
             })
             .unwrap();
         let buffer = terminal.backend().buffer().clone();
@@ -1619,7 +1903,10 @@ mod tests {
             lines.push(line.trim_end().to_string());
         }
         let rendered = lines.join("\n");
-        assert!(rendered.contains("(disabled)"), "Empty post-implementation prompt should show (disabled)");
+        assert!(
+            rendered.contains("(disabled)"),
+            "Empty post-implementation prompt should show (disabled)"
+        );
     }
 
     #[test]
@@ -1629,11 +1916,20 @@ mod tests {
         terminal
             .draw(|frame| {
                 let area = frame.area();
-                draw_config_screen(frame, &ConfigScreenParams {
-                    command: "cmd {prompt}", prompt: "prompt", post_implementation_prompt: "",
-                    interactive_command: "claude", run_finished_command: "",
-                    cursor_position: 0, focused_field: &ConfigField::PostImplementationPrompt, editing: false,
-                }, area);
+                draw_config_screen(
+                    frame,
+                    &ConfigScreenParams {
+                        command: "cmd {prompt}",
+                        prompt: "prompt",
+                        post_implementation_prompt: "",
+                        interactive_command: "claude",
+                        run_finished_command: "",
+                        cursor_position: 0,
+                        focused_field: &ConfigField::PostImplementationPrompt,
+                        editing: false,
+                    },
+                    area,
+                );
             })
             .unwrap();
         let buffer = terminal.backend().buffer().clone();
@@ -1646,7 +1942,10 @@ mod tests {
             lines.push(line.trim_end().to_string());
         }
         let rendered = lines.join("\n");
-        assert!(rendered.contains("$EDITOR"), "Editor hint should show when post-implementation prompt is focused");
+        assert!(
+            rendered.contains("$EDITOR"),
+            "Editor hint should show when post-implementation prompt is focused"
+        );
     }
 
     // --- Dependency View Rendering Tests ---
@@ -1657,7 +1956,14 @@ mod tests {
         terminal
             .draw(|frame| {
                 let area = frame.area();
-                draw_dependency_view(frame, "test-change", deps, selected, &crate::data::RunMode::Normal, area);
+                draw_dependency_view(
+                    frame,
+                    "test-change",
+                    deps,
+                    selected,
+                    &crate::data::RunMode::Normal,
+                    area,
+                );
             })
             .unwrap();
         let buffer = terminal.backend().buffer().clone();
@@ -1676,24 +1982,42 @@ mod tests {
     fn test_dependency_view_shows_title() {
         let deps = vec!["dep-a".to_string()];
         let rendered = render_dependency_view(60, 6, &deps, 0);
-        assert!(rendered.contains("test-change"), "Change name should be in title");
-        assert!(rendered.contains("Config"), "Config label should be in title");
-        assert!(rendered.contains("Mode: Normal"), "Run mode should be in title");
+        assert!(
+            rendered.contains("test-change"),
+            "Change name should be in title"
+        );
+        assert!(
+            rendered.contains("Config"),
+            "Config label should be in title"
+        );
+        assert!(
+            rendered.contains("Mode: Normal"),
+            "Run mode should be in title"
+        );
     }
 
     #[test]
     fn test_dependency_view_shows_dependencies() {
         let deps = vec!["dep-a".to_string(), "dep-b".to_string()];
         let rendered = render_dependency_view(50, 6, &deps, 0);
-        assert!(rendered.contains("dep-a"), "First dependency should be visible");
-        assert!(rendered.contains("dep-b"), "Second dependency should be visible");
+        assert!(
+            rendered.contains("dep-a"),
+            "First dependency should be visible"
+        );
+        assert!(
+            rendered.contains("dep-b"),
+            "Second dependency should be visible"
+        );
     }
 
     #[test]
     fn test_dependency_view_shows_empty_message() {
         let deps: Vec<String> = vec![];
         let rendered = render_dependency_view(50, 6, &deps, 0);
-        assert!(rendered.contains("No dependencies"), "Empty message should show");
+        assert!(
+            rendered.contains("No dependencies"),
+            "Empty message should show"
+        );
     }
 
     #[test]
@@ -1701,9 +2025,18 @@ mod tests {
         let deps = vec!["dep-a".to_string()];
         let rendered = render_dependency_view(80, 6, &deps, 0);
         assert!(rendered.contains("[A] Add"), "Add hint should be visible");
-        assert!(rendered.contains("[D] Remove"), "Remove hint should be visible");
-        assert!(rendered.contains("[M] Toggle Mode"), "Toggle Mode hint should be visible");
-        assert!(rendered.contains("[Esc] Back"), "Back hint should be visible");
+        assert!(
+            rendered.contains("[D] Remove"),
+            "Remove hint should be visible"
+        );
+        assert!(
+            rendered.contains("[M] Toggle Mode"),
+            "Toggle Mode hint should be visible"
+        );
+        assert!(
+            rendered.contains("[Esc] Back"),
+            "Back hint should be visible"
+        );
     }
 
     #[test]
@@ -1714,7 +2047,14 @@ mod tests {
         terminal
             .draw(|frame| {
                 let area = frame.area();
-                draw_dependency_view(frame, "test-change", &deps, 1, &crate::data::RunMode::Normal, area);
+                draw_dependency_view(
+                    frame,
+                    "test-change",
+                    &deps,
+                    1,
+                    &crate::data::RunMode::Normal,
+                    area,
+                );
             })
             .unwrap();
         let buffer = terminal.backend().buffer().clone();
@@ -1739,10 +2079,18 @@ mod tests {
                 }
             }
         }
-        assert!(found_yellow, "Selected dependency should be highlighted in yellow");
+        assert!(
+            found_yellow,
+            "Selected dependency should be highlighted in yellow"
+        );
     }
 
-    fn render_dependency_add(width: u16, height: u16, changes: &[String], selected: usize) -> String {
+    fn render_dependency_add(
+        width: u16,
+        height: u16,
+        changes: &[String],
+        selected: usize,
+    ) -> String {
         let backend = TestBackend::new(width, height);
         let mut terminal = Terminal::new(backend).unwrap();
         terminal
@@ -1767,23 +2115,38 @@ mod tests {
     fn test_dependency_add_shows_title() {
         let changes = vec!["change-a".to_string()];
         let rendered = render_dependency_add(50, 6, &changes, 0);
-        assert!(rendered.contains("Add Dependency"), "Add Dependency should be in title");
+        assert!(
+            rendered.contains("Add Dependency"),
+            "Add Dependency should be in title"
+        );
     }
 
     #[test]
     fn test_dependency_add_shows_available_changes() {
         let changes = vec!["change-a".to_string(), "change-b".to_string()];
         let rendered = render_dependency_add(50, 6, &changes, 0);
-        assert!(rendered.contains("change-a"), "First change should be visible");
-        assert!(rendered.contains("change-b"), "Second change should be visible");
+        assert!(
+            rendered.contains("change-a"),
+            "First change should be visible"
+        );
+        assert!(
+            rendered.contains("change-b"),
+            "Second change should be visible"
+        );
     }
 
     #[test]
     fn test_dependency_add_shows_keybinding_hints() {
         let changes = vec!["change-a".to_string()];
         let rendered = render_dependency_add(60, 6, &changes, 0);
-        assert!(rendered.contains("[Enter] Select"), "Select hint should be visible");
-        assert!(rendered.contains("[Esc] Cancel"), "Cancel hint should be visible");
+        assert!(
+            rendered.contains("[Enter] Select"),
+            "Select hint should be visible"
+        );
+        assert!(
+            rendered.contains("[Esc] Cancel"),
+            "Cancel hint should be visible"
+        );
     }
 
     #[test]
@@ -1793,13 +2156,11 @@ mod tests {
                 name: "add-api".to_string(),
                 completed_tasks: 2,
                 total_tasks: 5,
-
             },
             crate::data::ChangeEntry {
                 name: "add-auth".to_string(),
                 completed_tasks: 0,
                 total_tasks: 7,
-
             },
         ];
         let mut deps = HashMap::new();
@@ -1807,13 +2168,8 @@ mod tests {
             "add-auth".to_string(),
             vec!["add-api".to_string(), "add-user".to_string()],
         );
-        let rendered = render_change_list_with_deps(
-            80,
-            6,
-            &changes,
-            &crate::app::ChangeTab::Active,
-            &deps,
-        );
+        let rendered =
+            render_change_list_with_deps(80, 6, &changes, &crate::app::ChangeTab::Active, &deps);
         assert!(
             rendered.contains("<- add-api, add-user"),
             "Dependencies should be displayed inline: {}",
@@ -1827,16 +2183,10 @@ mod tests {
             name: "simple-change".to_string(),
             completed_tasks: 1,
             total_tasks: 3,
-
         }];
         let deps = HashMap::new();
-        let rendered = render_change_list_with_deps(
-            60,
-            5,
-            &changes,
-            &crate::app::ChangeTab::Active,
-            &deps,
-        );
+        let rendered =
+            render_change_list_with_deps(60, 5, &changes, &crate::app::ChangeTab::Active, &deps);
         assert!(
             !rendered.contains("<-"),
             "No dependency arrow should appear for changes without deps: {}",
@@ -1850,7 +2200,6 @@ mod tests {
             name: "my-change".to_string(),
             completed_tasks: 0,
             total_tasks: 1,
-
         }];
         let mut deps = HashMap::new();
         deps.insert(
@@ -1862,13 +2211,8 @@ mod tests {
             ],
         );
         // Use a narrow width to force truncation
-        let rendered = render_change_list_with_deps(
-            50,
-            5,
-            &changes,
-            &crate::app::ChangeTab::Active,
-            &deps,
-        );
+        let rendered =
+            render_change_list_with_deps(50, 5, &changes, &crate::app::ChangeTab::Active, &deps);
         // Should either show truncated "..." or not show deps at all if no space
         let has_ellipsis = rendered.contains("...");
         let has_no_arrow = !rendered.contains("<-");
@@ -1964,10 +2308,7 @@ mod tests {
             total_tasks: 3,
         }];
         let rendered = render_run_all_selection(60, 6, &entries, 0, None);
-        assert!(
-            rendered.contains("Run All"),
-            "Should show Run All title"
-        );
+        assert!(rendered.contains("Run All"), "Should show Run All title");
     }
 
     #[test]
@@ -1991,8 +2332,14 @@ mod tests {
             },
         ];
         let rendered = render_run_all_selection(60, 6, &entries, 0, None);
-        assert!(rendered.contains("[x]"), "Should show checked checkbox for included");
-        assert!(rendered.contains("[ ]"), "Should show unchecked checkbox for excluded");
+        assert!(
+            rendered.contains("[x]"),
+            "Should show checked checkbox for included"
+        );
+        assert!(
+            rendered.contains("[ ]"),
+            "Should show unchecked checkbox for excluded"
+        );
     }
 
     #[test]
@@ -2024,7 +2371,10 @@ mod tests {
             total_tasks: 3,
         }];
         let rendered = render_run_all_selection(80, 6, &entries, 0, None);
-        assert!(rendered.contains("[Space] Toggle"), "Should show toggle hint");
+        assert!(
+            rendered.contains("[Space] Toggle"),
+            "Should show toggle hint"
+        );
         assert!(rendered.contains("[Enter] Start"), "Should show start hint");
         assert!(rendered.contains("[Esc] Cancel"), "Should show cancel hint");
     }
@@ -2077,11 +2427,20 @@ mod tests {
         terminal
             .draw(|frame| {
                 let area = frame.area();
-                draw_config_screen(frame, &ConfigScreenParams {
-                    command: "cmd {prompt}", prompt: "prompt", post_implementation_prompt: "",
-                    interactive_command: "aider --model gpt4", run_finished_command: "",
-                    cursor_position: 0, focused_field: &ConfigField::Command, editing: false,
-                }, area);
+                draw_config_screen(
+                    frame,
+                    &ConfigScreenParams {
+                        command: "cmd {prompt}",
+                        prompt: "prompt",
+                        post_implementation_prompt: "",
+                        interactive_command: "aider --model gpt4",
+                        run_finished_command: "",
+                        cursor_position: 0,
+                        focused_field: &ConfigField::Command,
+                        editing: false,
+                    },
+                    area,
+                );
             })
             .unwrap();
         let buffer = terminal.backend().buffer().clone();
@@ -2094,8 +2453,14 @@ mod tests {
             lines.push(line.trim_end().to_string());
         }
         let rendered = lines.join("\n");
-        assert!(rendered.contains("Interactive Command"), "Interactive Command field should be visible");
-        assert!(rendered.contains("aider --model gpt4"), "Interactive command value should be visible");
+        assert!(
+            rendered.contains("Interactive Command"),
+            "Interactive Command field should be visible"
+        );
+        assert!(
+            rendered.contains("aider --model gpt4"),
+            "Interactive command value should be visible"
+        );
     }
 
     #[test]
@@ -2106,7 +2471,6 @@ mod tests {
                     name: "test-change".to_string(),
                     completed_tasks: 1,
                     total_tasks: 3,
-    
                 }],
                 selected: 0,
                 error: None,
@@ -2122,7 +2486,10 @@ mod tests {
             config_path: std::path::PathBuf::from("/tmp/openspec-tui-test-config.yaml"),
         };
         let rendered = render_draw(80, 10, &app);
-        assert!(rendered.contains("[I] Interactive"), "Active tab should show [I] Interactive hint");
+        assert!(
+            rendered.contains("[I] Interactive"),
+            "Active tab should show [I] Interactive hint"
+        );
     }
 
     #[test]
@@ -2144,6 +2511,9 @@ mod tests {
             config_path: std::path::PathBuf::from("/tmp/openspec-tui-test-config.yaml"),
         };
         let rendered = render_draw(80, 10, &app);
-        assert!(!rendered.contains("[I] Interactive"), "Archived tab should not show [I] Interactive hint");
+        assert!(
+            !rendered.contains("[I] Interactive"),
+            "Archived tab should not show [I] Interactive hint"
+        );
     }
 }

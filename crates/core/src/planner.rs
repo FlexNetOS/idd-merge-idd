@@ -81,38 +81,118 @@ pub fn generate_workspace(
     let tasks = ai_merge.join("07_tasks");
     ensure_dir(&tasks).map_err(|e| format!("failed to create output directories: {e}"))?;
     ensure_dir(&out.join(".idd")).map_err(|e| format!("failed to create .idd: {e}"))?;
-    ensure_dir(&out.join(".github/workflows")).map_err(|e| format!("failed to create workflows: {e}"))?;
-    ensure_dir(&out.join(".github/ISSUE_TEMPLATE")).map_err(|e| format!("failed to create issue templates: {e}"))?;
+    ensure_dir(&out.join(".github/workflows"))
+        .map_err(|e| format!("failed to create workflows: {e}"))?;
+    ensure_dir(&out.join(".github/ISSUE_TEMPLATE"))
+        .map_err(|e| format!("failed to create issue templates: {e}"))?;
 
     write_preserve(&out.join("AGENTS.md"), templates::AGENTS_MD)?;
-    write_preserve(&out.join(".github/copilot-instructions.md"), templates::COPILOT_INSTRUCTIONS)?;
-    write_preserve(&out.join(".github/pull_request_template.md"), templates::PR_TEMPLATE)?;
-    write_preserve(&out.join(".github/ISSUE_TEMPLATE/idd-task.yml"), templates::ISSUE_TEMPLATE)?;
+    write_preserve(
+        &out.join(".github/copilot-instructions.md"),
+        templates::COPILOT_INSTRUCTIONS,
+    )?;
+    write_preserve(
+        &out.join(".github/pull_request_template.md"),
+        templates::PR_TEMPLATE,
+    )?;
+    write_preserve(
+        &out.join(".github/ISSUE_TEMPLATE/idd-task.yml"),
+        templates::ISSUE_TEMPLATE,
+    )?;
     write_preserve(&out.join("SECURITY.md"), templates::SECURITY_MD)?;
     write_preserve(&out.join(".idd/LOCK.md"), templates::LOCK_TEMPLATE)?;
-    write_preserve(&out.join(".env.schema.example.json"), templates::ENV_SCHEMA_EXAMPLE)?;
-    write_preserve(&out.join(".github/workflows/idd-ci.yml"), templates::GITHUB_ACTIONS_CI)?;
+    write_preserve(
+        &out.join(".env.schema.example.json"),
+        templates::ENV_SCHEMA_EXAMPLE,
+    )?;
+    write_preserve(
+        &out.join(".github/workflows/idd-ci.yml"),
+        templates::GITHUB_ACTIONS_CI,
+    )?;
 
-    write_preserve(&ai_merge.join("00_repo_a_inventory.md"), &inventory_markdown(a))?;
-    write_preserve(&ai_merge.join("00_repo_a_inventory.json"), &inventory_json(a))?;
-    write_preserve(&ai_merge.join("01_repo_b_inventory.md"), &inventory_markdown(b))?;
-    write_preserve(&ai_merge.join("01_repo_b_inventory.json"), &inventory_json(b))?;
-    write_preserve(&ai_merge.join("02_feature_matrix.md"), &feature_matrix_markdown(a, b))?;
-    write_preserve(&ai_merge.join("03_env_and_secret_contracts.md"), &env_secret_contract_markdown(a, b))?;
-    write_preserve(&ai_merge.join("03_env_and_secret_contracts.json"), &env_secret_contract_json(a, b))?;
-    write_preserve(&ai_merge.join("04_merge_plan.md"), &merge_plan_markdown(name, a, b))?;
-    write_preserve(&ai_merge.join("05_conflict_risk_register.md"), &conflict_register_markdown(a, b))?;
-    write_preserve(&ai_merge.join("06_gap_audit_and_applied_updates.md"), &gap_audit_markdown())?;
+    write_preserve(
+        &ai_merge.join("00_repo_a_inventory.md"),
+        &inventory_markdown(a),
+    )?;
+    write_preserve(
+        &ai_merge.join("00_repo_a_inventory.json"),
+        &inventory_json(a),
+    )?;
+    write_preserve(
+        &ai_merge.join("01_repo_b_inventory.md"),
+        &inventory_markdown(b),
+    )?;
+    write_preserve(
+        &ai_merge.join("01_repo_b_inventory.json"),
+        &inventory_json(b),
+    )?;
+    write_preserve(
+        &ai_merge.join("02_feature_matrix.md"),
+        &feature_matrix_markdown(a, b),
+    )?;
+    write_preserve(
+        &ai_merge.join("03_env_and_secret_contracts.md"),
+        &env_secret_contract_markdown(a, b),
+    )?;
+    write_preserve(
+        &ai_merge.join("03_env_and_secret_contracts.json"),
+        &env_secret_contract_json(a, b),
+    )?;
+    write_preserve(
+        &ai_merge.join("04_merge_plan.md"),
+        &merge_plan_markdown(name, a, b),
+    )?;
+    write_preserve(
+        &ai_merge.join("05_conflict_risk_register.md"),
+        &conflict_register_markdown(a, b),
+    )?;
+    write_preserve(
+        &ai_merge.join("06_gap_audit_and_applied_updates.md"),
+        &gap_audit_markdown(),
+    )?;
     write_preserve(&ai_merge.join("08_agent_queue.md"), templates::AGENT_QUEUE)?;
-    write_preserve(&ai_merge.join("09_github_execution.md"), templates::GITHUB_EXECUTION)?;
-    write_preserve(&ai_merge.join("10_parity_test_plan.md"), templates::PARITY_TEST_PLAN)?;
-    write_preserve(&ai_merge.join("11_provider_matrix.md"), templates::PROVIDER_MATRIX)?;
+    write_preserve(
+        &ai_merge.join("09_github_execution.md"),
+        templates::GITHUB_EXECUTION,
+    )?;
+    write_preserve(
+        &ai_merge.join("10_parity_test_plan.md"),
+        templates::PARITY_TEST_PLAN,
+    )?;
+    write_preserve(
+        &ai_merge.join("11_provider_matrix.md"),
+        templates::PROVIDER_MATRIX,
+    )?;
 
-    write_preserve(&tasks.join("0001-import-repos-without-flattening.md"), &task_markdown("Import both repositories under /imports without flattening", "repo-import"))?;
-    write_preserve(&tasks.join("0002-normalize-env-and-secrets.md"), &task_markdown("Normalize environment and secrets contracts", "env-secrets"))?;
-    write_preserve(&tasks.join("0003-create-canonical-interfaces.md"), &task_markdown("Create canonical interfaces before moving implementations", "interface"))?;
-    write_preserve(&tasks.join("0004-add-parity-tests.md"), &task_markdown("Add parity tests for migrated behavior", "testing"))?;
-    write_preserve(&tasks.join("0005-wire-github-ci-and-validation.md"), &task_markdown("Wire GitHub CI, validation, PR template, and issue template", "github"))?;
+    write_preserve(
+        &tasks.join("0001-import-repos-without-flattening.md"),
+        &task_markdown(
+            "Import both repositories under /imports without flattening",
+            "repo-import",
+        ),
+    )?;
+    write_preserve(
+        &tasks.join("0002-normalize-env-and-secrets.md"),
+        &task_markdown("Normalize environment and secrets contracts", "env-secrets"),
+    )?;
+    write_preserve(
+        &tasks.join("0003-create-canonical-interfaces.md"),
+        &task_markdown(
+            "Create canonical interfaces before moving implementations",
+            "interface",
+        ),
+    )?;
+    write_preserve(
+        &tasks.join("0004-add-parity-tests.md"),
+        &task_markdown("Add parity tests for migrated behavior", "testing"),
+    )?;
+    write_preserve(
+        &tasks.join("0005-wire-github-ci-and-validation.md"),
+        &task_markdown(
+            "Wire GitHub CI, validation, PR template, and issue template",
+            "github",
+        ),
+    )?;
 
     write_manifest(out, out.join(".idd/MANIFEST.tsv"))?;
     Ok(())
@@ -168,19 +248,38 @@ pub fn inventory_json(inv: &RepoInventory) -> String {
     out.push_str(&format!("  \"files_scanned\": {},\n", inv.files.len()));
     out.push_str("  \"languages\": {");
     for (idx, (language, count)) in inv.languages.iter().enumerate() {
-        if idx > 0 { out.push_str(", "); }
+        if idx > 0 {
+            out.push_str(", ");
+        }
         out.push_str(&format!("\"{}\": {}", json_escape(language), count));
     }
     out.push_str("},\n");
-    out.push_str(&format!("  \"package_managers\": {},\n", json_array(&inv.package_managers)));
-    out.push_str(&format!("  \"entrypoints\": {},\n", json_array(&inv.entrypoints)));
-    out.push_str(&format!("  \"workflows\": {},\n", json_array(&inv.workflows)));
-    out.push_str(&format!("  \"agent_files\": {},\n", json_array(&inv.agent_files)));
-    out.push_str(&format!("  \"security_files\": {},\n", json_array(&inv.security_files)));
+    out.push_str(&format!(
+        "  \"package_managers\": {},\n",
+        json_array(&inv.package_managers)
+    ));
+    out.push_str(&format!(
+        "  \"entrypoints\": {},\n",
+        json_array(&inv.entrypoints)
+    ));
+    out.push_str(&format!(
+        "  \"workflows\": {},\n",
+        json_array(&inv.workflows)
+    ));
+    out.push_str(&format!(
+        "  \"agent_files\": {},\n",
+        json_array(&inv.agent_files)
+    ));
+    out.push_str(&format!(
+        "  \"security_files\": {},\n",
+        json_array(&inv.security_files)
+    ));
     out.push_str(&format!("  \"env_keys\": {},\n", json_array(&inv.env_keys)));
     out.push_str("  \"secret_refs\": [\n");
     for (idx, r) in inv.secret_refs.iter().enumerate() {
-        if idx > 0 { out.push_str(",\n"); }
+        if idx > 0 {
+            out.push_str(",\n");
+        }
         out.push_str(&format!(
             "    {{\"file\": \"{}\", \"key\": \"{}\", \"source\": \"{}\"}}",
             json_escape(&r.file),
@@ -198,15 +297,51 @@ pub fn feature_matrix_markdown(a: &RepoInventory, b: &RepoInventory) -> String {
     out.push_str("| Capability | Repo A Signal | Repo B Signal | Default Decision | Migration Action |\n|---|---|---|---|---|\n");
 
     let capabilities = [
-        ("Rust native core", has_language(a, "Rust"), has_language(b, "Rust")),
-        ("Node/TypeScript UI or tooling", has_language(a, "TypeScript") || has_language(a, "JavaScript"), has_language(b, "TypeScript") || has_language(b, "JavaScript")),
-        ("Python tooling", has_language(a, "Python"), has_language(b, "Python")),
-        ("GitHub Actions CI", !a.workflows.is_empty(), !b.workflows.is_empty()),
-        ("Environment contract", !a.env_keys.is_empty(), !b.env_keys.is_empty()),
-        ("Secret references", !a.secret_refs.is_empty(), !b.secret_refs.is_empty()),
-        ("Nix, mise, or direnv toolchain", has_manager(a, "nix") || has_manager(a, "mise") || has_manager(a, "direnv"), has_manager(b, "nix") || has_manager(b, "mise") || has_manager(b, "direnv")),
-        ("Agent control files", !a.agent_files.is_empty(), !b.agent_files.is_empty()),
-        ("Security policy files", !a.security_files.is_empty(), !b.security_files.is_empty()),
+        (
+            "Rust native core",
+            has_language(a, "Rust"),
+            has_language(b, "Rust"),
+        ),
+        (
+            "Node/TypeScript UI or tooling",
+            has_language(a, "TypeScript") || has_language(a, "JavaScript"),
+            has_language(b, "TypeScript") || has_language(b, "JavaScript"),
+        ),
+        (
+            "Python tooling",
+            has_language(a, "Python"),
+            has_language(b, "Python"),
+        ),
+        (
+            "GitHub Actions CI",
+            !a.workflows.is_empty(),
+            !b.workflows.is_empty(),
+        ),
+        (
+            "Environment contract",
+            !a.env_keys.is_empty(),
+            !b.env_keys.is_empty(),
+        ),
+        (
+            "Secret references",
+            !a.secret_refs.is_empty(),
+            !b.secret_refs.is_empty(),
+        ),
+        (
+            "Nix, mise, or direnv toolchain",
+            has_manager(a, "nix") || has_manager(a, "mise") || has_manager(a, "direnv"),
+            has_manager(b, "nix") || has_manager(b, "mise") || has_manager(b, "direnv"),
+        ),
+        (
+            "Agent control files",
+            !a.agent_files.is_empty(),
+            !b.agent_files.is_empty(),
+        ),
+        (
+            "Security policy files",
+            !a.security_files.is_empty(),
+            !b.security_files.is_empty(),
+        ),
     ];
 
     for (cap, av, bv) in capabilities {
@@ -230,7 +365,9 @@ pub fn feature_matrix_markdown(a: &RepoInventory, b: &RepoInventory) -> String {
 
     out.push_str("\n## Shared Paths\n\n| Path | Repo A | Repo B | Risk |\n|---|---|---|---|\n");
     for path in shared_paths(a, b).into_iter().take(100) {
-        out.push_str(&format!("| `{path}` | yes | yes | naming/API collision |\n"));
+        out.push_str(&format!(
+            "| `{path}` | yes | yes | naming/API collision |\n"
+        ));
     }
     out
 }
@@ -239,7 +376,9 @@ pub fn env_secret_contract_markdown(a: &RepoInventory, b: &RepoInventory) -> Str
     let keys = unified_env_keys(a, b);
     let mut out = String::from("# Environment and Secrets Contract\n\n");
     out.push_str("Rule: configuration keys may be documented in Git; secret values must not be committed. Prefer OIDC over long-lived cloud credentials when possible.\n\n");
-    out.push_str("| Key | Repo A | Repo B | Secret? | Canonical Decision |\n|---|---|---|---|---|\n");
+    out.push_str(
+        "| Key | Repo A | Repo B | Secret? | Canonical Decision |\n|---|---|---|---|---|\n",
+    );
     if keys.is_empty() {
         out.push_str("| _none detected_ |  |  |  | Add keys intentionally as needed |\n");
     } else {
@@ -268,7 +407,9 @@ pub fn env_secret_contract_json(a: &RepoInventory, b: &RepoInventory) -> String 
     let keys = unified_env_keys(a, b);
     let mut out = String::from("{\n  \"keys\": [\n");
     for (idx, key) in keys.iter().enumerate() {
-        if idx > 0 { out.push_str(",\n"); }
+        if idx > 0 {
+            out.push_str(",\n");
+        }
         out.push_str(&format!(
             "    {{\"key\": \"{}\", \"repo_a\": {}, \"repo_b\": {}, \"secretish\": {}}}",
             json_escape(key),
@@ -326,7 +467,9 @@ Cloud agents should be fed one repo task at a time. If the task needs two repos,
 }
 
 pub fn conflict_register_markdown(a: &RepoInventory, b: &RepoInventory) -> String {
-    let mut out = String::from("# Conflict Risk Register\n\n| Risk | Evidence | Mitigation |\n|---|---|---|\n");
+    let mut out = String::from(
+        "# Conflict Risk Register\n\n| Risk | Evidence | Mitigation |\n|---|---|---|\n",
+    );
     let shared = shared_paths(a, b);
     if shared.is_empty() {
         out.push_str("| Path collisions | None detected by identical relative path | Keep monitoring as files move |\n");
@@ -400,21 +543,41 @@ fn has_multiple_package_managers(inv: &RepoInventory) -> bool {
 }
 
 fn yes_no(value: bool) -> &'static str {
-    if value { "yes" } else { "no" }
+    if value {
+        "yes"
+    } else {
+        "no"
+    }
 }
 
 fn shared_paths(a: &RepoInventory, b: &RepoInventory) -> Vec<String> {
-    let a_paths = a.files.iter().map(|f| f.path.clone()).collect::<BTreeSet<_>>();
-    let b_paths = b.files.iter().map(|f| f.path.clone()).collect::<BTreeSet<_>>();
+    let a_paths = a
+        .files
+        .iter()
+        .map(|f| f.path.clone())
+        .collect::<BTreeSet<_>>();
+    let b_paths = b
+        .files
+        .iter()
+        .map(|f| f.path.clone())
+        .collect::<BTreeSet<_>>();
     a_paths.intersection(&b_paths).cloned().collect()
 }
 
 fn unified_env_keys(a: &RepoInventory, b: &RepoInventory) -> Vec<String> {
     let mut keys = BTreeSet::new();
-    for key in &a.env_keys { keys.insert(key.clone()); }
-    for key in &b.env_keys { keys.insert(key.clone()); }
-    for r in &a.secret_refs { keys.insert(r.key.clone()); }
-    for r in &b.secret_refs { keys.insert(r.key.clone()); }
+    for key in &a.env_keys {
+        keys.insert(key.clone());
+    }
+    for key in &b.env_keys {
+        keys.insert(key.clone());
+    }
+    for r in &a.secret_refs {
+        keys.insert(r.key.clone());
+    }
+    for r in &b.secret_refs {
+        keys.insert(r.key.clone());
+    }
     keys.into_iter().collect()
 }
 
@@ -424,9 +587,18 @@ fn contains_key(inv: &RepoInventory, key: &str) -> bool {
 
 fn looks_secretish(key: &str) -> bool {
     let upper = key.to_ascii_uppercase();
-    ["SECRET", "TOKEN", "KEY", "PASSWORD", "PASS", "PRIVATE", "CREDENTIAL", "AUTH"]
-        .iter()
-        .any(|needle| upper.contains(*needle))
+    [
+        "SECRET",
+        "TOKEN",
+        "KEY",
+        "PASSWORD",
+        "PASS",
+        "PRIVATE",
+        "CREDENTIAL",
+        "AUTH",
+    ]
+    .iter()
+    .any(|needle| upper.contains(*needle))
 }
 
 fn slugify(title: &str) -> String {

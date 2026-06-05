@@ -34,21 +34,42 @@ where
 }
 
 fn cmd_init(args: &[String]) -> Result<(), String> {
-    let target = args.first().map(PathBuf::from).unwrap_or_else(|| PathBuf::from("."));
+    let target = args
+        .first()
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("."));
     ensure_dir(&target).map_err(|e| format!("failed to create target: {e}"))?;
-    ensure_dir(&target.join("AI_MERGE/07_tasks")).map_err(|e| format!("failed to create AI_MERGE: {e}"))?;
+    ensure_dir(&target.join("AI_MERGE/07_tasks"))
+        .map_err(|e| format!("failed to create AI_MERGE: {e}"))?;
     ensure_dir(&target.join(".idd")).map_err(|e| format!("failed to create .idd: {e}"))?;
-    ensure_dir(&target.join(".github/workflows")).map_err(|e| format!("failed to create workflows: {e}"))?;
-    ensure_dir(&target.join(".github/ISSUE_TEMPLATE")).map_err(|e| format!("failed to create issue templates: {e}"))?;
+    ensure_dir(&target.join(".github/workflows"))
+        .map_err(|e| format!("failed to create workflows: {e}"))?;
+    ensure_dir(&target.join(".github/ISSUE_TEMPLATE"))
+        .map_err(|e| format!("failed to create issue templates: {e}"))?;
 
     write_template(&target.join("AGENTS.md"), templates::AGENTS_MD)?;
-    write_template(&target.join(".github/copilot-instructions.md"), templates::COPILOT_INSTRUCTIONS)?;
-    write_template(&target.join(".github/pull_request_template.md"), templates::PR_TEMPLATE)?;
-    write_template(&target.join(".github/ISSUE_TEMPLATE/idd-task.yml"), templates::ISSUE_TEMPLATE)?;
+    write_template(
+        &target.join(".github/copilot-instructions.md"),
+        templates::COPILOT_INSTRUCTIONS,
+    )?;
+    write_template(
+        &target.join(".github/pull_request_template.md"),
+        templates::PR_TEMPLATE,
+    )?;
+    write_template(
+        &target.join(".github/ISSUE_TEMPLATE/idd-task.yml"),
+        templates::ISSUE_TEMPLATE,
+    )?;
     write_template(&target.join("SECURITY.md"), templates::SECURITY_MD)?;
     write_template(&target.join(".idd/LOCK.md"), templates::LOCK_TEMPLATE)?;
-    write_template(&target.join(".env.schema.example.json"), templates::ENV_SCHEMA_EXAMPLE)?;
-    write_template(&target.join(".github/workflows/idd-ci.yml"), templates::GITHUB_ACTIONS_CI)?;
+    write_template(
+        &target.join(".env.schema.example.json"),
+        templates::ENV_SCHEMA_EXAMPLE,
+    )?;
+    write_template(
+        &target.join(".github/workflows/idd-ci.yml"),
+        templates::GITHUB_ACTIONS_CI,
+    )?;
     write_template(
         &target.join("AI_MERGE/04_merge_plan.md"),
         "# Merge Plan\n\nRun `idd plan --repo-a <path> --repo-b <path> --out .` to generate a concrete plan.\n",
@@ -57,10 +78,22 @@ fn cmd_init(args: &[String]) -> Result<(), String> {
         &target.join("AI_MERGE/03_env_and_secret_contracts.md"),
         "# Environment and Secrets Contract\n\nRun `idd plan` to generate this from actual repositories.\n",
     )?;
-    write_template(&target.join("AI_MERGE/08_agent_queue.md"), templates::AGENT_QUEUE)?;
-    write_template(&target.join("AI_MERGE/09_github_execution.md"), templates::GITHUB_EXECUTION)?;
-    write_template(&target.join("AI_MERGE/10_parity_test_plan.md"), templates::PARITY_TEST_PLAN)?;
-    write_template(&target.join("AI_MERGE/11_provider_matrix.md"), templates::PROVIDER_MATRIX)?;
+    write_template(
+        &target.join("AI_MERGE/08_agent_queue.md"),
+        templates::AGENT_QUEUE,
+    )?;
+    write_template(
+        &target.join("AI_MERGE/09_github_execution.md"),
+        templates::GITHUB_EXECUTION,
+    )?;
+    write_template(
+        &target.join("AI_MERGE/10_parity_test_plan.md"),
+        templates::PARITY_TEST_PLAN,
+    )?;
+    write_template(
+        &target.join("AI_MERGE/11_provider_matrix.md"),
+        templates::PROVIDER_MATRIX,
+    )?;
     write_manifest(&target, target.join(".idd/MANIFEST.tsv"))?;
     println!("initialized IDD workspace at {}", target.display());
     Ok(())
@@ -91,7 +124,10 @@ fn cmd_plan(args: &[String]) -> Result<(), String> {
     let repo_a = required(&flags, "repo-a")?;
     let repo_b = required(&flags, "repo-b")?;
     let out = flags.get("out").map(String::as_str).unwrap_or(".");
-    let name = flags.get("name").map(String::as_str).unwrap_or("repo-unification");
+    let name = flags
+        .get("name")
+        .map(String::as_str)
+        .unwrap_or("repo-unification");
     generate_plan_from_paths(repo_a, repo_b, out, name)?;
     println!("generated IDD merge workspace at {out}");
     Ok(())
@@ -119,8 +155,14 @@ fn cmd_validate(args: &[String]) -> Result<(), String> {
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from(workspace).join("AI_MERGE/validation_report.md"));
     let findings = write_validation_report(workspace, &report)?;
-    let critical = findings.iter().filter(|f| f.severity.to_string() == "critical").count();
-    let warnings = findings.iter().filter(|f| f.severity.to_string() == "warning").count();
+    let critical = findings
+        .iter()
+        .filter(|f| f.severity.to_string() == "critical")
+        .count();
+    let warnings = findings
+        .iter()
+        .filter(|f| f.severity.to_string() == "warning")
+        .count();
     println!(
         "validation complete: {} critical, {} warning; report: {}",
         critical,
@@ -141,19 +183,40 @@ fn cmd_manifest(args: &[String]) -> Result<(), String> {
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from(workspace).join(".idd/MANIFEST.tsv"));
     let entries = write_manifest(workspace, &out)?;
-    println!("wrote {} manifest entries to {}", entries.len(), out.display());
+    println!(
+        "wrote {} manifest entries to {}",
+        entries.len(),
+        out.display()
+    );
     Ok(())
 }
 
 fn cmd_github(args: &[String]) -> Result<(), String> {
     let flags = parse_flags(args);
-    let workspace = flags.get("workspace").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("."));
-    ensure_dir(&workspace.join(".github/ISSUE_TEMPLATE")).map_err(|e| format!("failed to create .github templates: {e}"))?;
-    ensure_dir(&workspace.join(".github/workflows")).map_err(|e| format!("failed to create workflows: {e}"))?;
-    write_template(&workspace.join(".github/copilot-instructions.md"), templates::COPILOT_INSTRUCTIONS)?;
-    write_template(&workspace.join(".github/pull_request_template.md"), templates::PR_TEMPLATE)?;
-    write_template(&workspace.join(".github/ISSUE_TEMPLATE/idd-task.yml"), templates::ISSUE_TEMPLATE)?;
-    write_template(&workspace.join(".github/workflows/idd-ci.yml"), templates::GITHUB_ACTIONS_CI)?;
+    let workspace = flags
+        .get("workspace")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("."));
+    ensure_dir(&workspace.join(".github/ISSUE_TEMPLATE"))
+        .map_err(|e| format!("failed to create .github templates: {e}"))?;
+    ensure_dir(&workspace.join(".github/workflows"))
+        .map_err(|e| format!("failed to create workflows: {e}"))?;
+    write_template(
+        &workspace.join(".github/copilot-instructions.md"),
+        templates::COPILOT_INSTRUCTIONS,
+    )?;
+    write_template(
+        &workspace.join(".github/pull_request_template.md"),
+        templates::PR_TEMPLATE,
+    )?;
+    write_template(
+        &workspace.join(".github/ISSUE_TEMPLATE/idd-task.yml"),
+        templates::ISSUE_TEMPLATE,
+    )?;
+    write_template(
+        &workspace.join(".github/workflows/idd-ci.yml"),
+        templates::GITHUB_ACTIONS_CI,
+    )?;
     write_template(&workspace.join("SECURITY.md"), templates::SECURITY_MD)?;
     write_manifest(&workspace, workspace.join(".idd/MANIFEST.tsv"))?;
     println!("wrote GitHub agent templates to {}", workspace.display());
@@ -199,8 +262,7 @@ fn write_template(path: &Path, content: &str) -> Result<(), String> {
 
 fn print_help() {
     println!(
-        "{}",
-        r#"intent-driven-development (idd)
+        "intent-driven-development (idd)
 
 USAGE:
   idd init [path]
@@ -217,7 +279,7 @@ CORE IDEA:
 
 EXAMPLE:
   idd plan --repo-a ../env-manager --repo-b ../secrets-manager --out ./integration --name env-secrets-unification
-"#
+"
     );
 }
 

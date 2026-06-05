@@ -63,9 +63,7 @@ fn edit_in_external_editor(
     execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
 
     let editor = std::env::var("EDITOR").unwrap_or_else(|_| "vi".to_string());
-    let status = std::process::Command::new(&editor)
-        .arg(&path)
-        .status();
+    let status = std::process::Command::new(&editor).arg(&path).status();
 
     // Re-enter TUI mode
     enable_raw_mode()?;
@@ -89,9 +87,7 @@ fn launch_interactive_tool(
     disable_raw_mode()?;
     execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
 
-    let _ = std::process::Command::new(&binary)
-        .args(&args)
-        .status();
+    let _ = std::process::Command::new(&binary).args(&args).status();
 
     enable_raw_mode()?;
     execute!(terminal.backend_mut(), EnterAlternateScreen)?;
@@ -100,7 +96,9 @@ fn launch_interactive_tool(
     Ok(())
 }
 
-fn run_app(terminal: &mut ratatui::Terminal<CrosstermBackend<io::Stdout>>) -> Result<(), Box<dyn std::error::Error>> {
+fn run_app(
+    terminal: &mut ratatui::Terminal<CrosstermBackend<io::Stdout>>,
+) -> Result<(), Box<dyn std::error::Error>> {
     let mut app = App::new()?;
 
     loop {
@@ -119,7 +117,12 @@ fn run_app(terminal: &mut ratatui::Terminal<CrosstermBackend<io::Stdout>>) -> Re
             if matches!(app.screen, Screen::Config { .. }) {
                 let open_editor = app.handle_config_input(key.code);
                 if open_editor
-                    && let Screen::Config { prompt, post_implementation_prompt, focused_field, .. } = &app.screen
+                    && let Screen::Config {
+                        prompt,
+                        post_implementation_prompt,
+                        focused_field,
+                        ..
+                    } = &app.screen
                 {
                     let (content, is_post_prompt) = match focused_field {
                         app::ConfigField::PostImplementationPrompt => {

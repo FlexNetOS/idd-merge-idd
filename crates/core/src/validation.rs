@@ -1,4 +1,6 @@
-use crate::fs_utils::{read_to_string_lossy, relative_path, stable_walk, write_string_preserving_existing};
+use crate::fs_utils::{
+    read_to_string_lossy, relative_path, stable_walk, write_string_preserving_existing,
+};
 use crate::model::{FindingSeverity, ValidationFinding};
 use std::path::Path;
 
@@ -7,7 +9,10 @@ const MAX_SCAN_BYTES: u64 = 512 * 1024;
 pub fn validate_workspace(path: impl AsRef<Path>) -> Result<Vec<ValidationFinding>, String> {
     let root = path.as_ref();
     if !root.exists() || !root.is_dir() {
-        return Err(format!("workspace path is not a directory: {}", root.display()));
+        return Err(format!(
+            "workspace path is not a directory: {}",
+            root.display()
+        ));
     }
 
     let mut findings = Vec::new();
@@ -18,7 +23,11 @@ pub fn validate_workspace(path: impl AsRef<Path>) -> Result<Vec<ValidationFindin
     require_file(root, ".idd/LOCK.md", &mut findings);
     require_file(root, ".idd/MANIFEST.tsv", &mut findings);
     require_file(root, "AI_MERGE/04_merge_plan.md", &mut findings);
-    require_file(root, "AI_MERGE/03_env_and_secret_contracts.md", &mut findings);
+    require_file(
+        root,
+        "AI_MERGE/03_env_and_secret_contracts.md",
+        &mut findings,
+    );
     require_file(root, "AI_MERGE/08_agent_queue.md", &mut findings);
     require_file(root, "AI_MERGE/10_parity_test_plan.md", &mut findings);
 
@@ -47,7 +56,8 @@ pub fn write_validation_report(
     report_path: impl AsRef<Path>,
 ) -> Result<Vec<ValidationFinding>, String> {
     let findings = validate_workspace(workspace)?;
-    let mut out = String::from("# IDD Validation Report\n\n| Severity | File | Finding |\n|---|---|---|\n");
+    let mut out =
+        String::from("# IDD Validation Report\n\n| Severity | File | Finding |\n|---|---|---|\n");
     if findings.is_empty() {
         out.push_str("| info | _workspace_ | No findings |\n");
     } else {
@@ -91,7 +101,8 @@ fn flag_committed_env_file(file: &str, findings: &mut Vec<ValidationFinding>) {
         findings.push(ValidationFinding {
             severity: FindingSeverity::Critical,
             file: file.to_string(),
-            message: "committed dotenv file detected; keep real .env files local or encrypted".to_string(),
+            message: "committed dotenv file detected; keep real .env files local or encrypted"
+                .to_string(),
         });
     }
 }
@@ -106,7 +117,7 @@ fn scan_secret_patterns(file: &str, content: &str, findings: &mut Vec<Validation
 
     for (line_no, line) in content.lines().enumerate() {
         let lower = line.to_ascii_lowercase();
-        let critical = vec![
+        let critical = [
             ["-----begin ", "private key-----"].concat(),
             ["aws_secret", "_access_key="].concat(),
             ["gh", "p_"].concat(),
@@ -116,7 +127,11 @@ fn scan_secret_patterns(file: &str, content: &str, findings: &mut Vec<Validation
             ["sk", "-live-"].concat(),
             ["-----begin open", "ssh private key-----"].concat(),
         ];
-        if critical.iter().any(|needle| lower.contains(needle.as_str())) && !is_allowed_example {
+        if critical
+            .iter()
+            .any(|needle| lower.contains(needle.as_str()))
+            && !is_allowed_example
+        {
             findings.push(ValidationFinding {
                 severity: FindingSeverity::Critical,
                 file: file.to_string(),
@@ -124,7 +139,7 @@ fn scan_secret_patterns(file: &str, content: &str, findings: &mut Vec<Validation
             });
         }
 
-        let warning = vec![
+        let warning = [
             ["pass", "word="].concat(),
             ["api", "_key="].concat(),
             ["api", "key="].concat(),
@@ -149,21 +164,30 @@ fn scan_workflow_risks(file: &str, content: &str, findings: &mut Vec<ValidationF
             findings.push(ValidationFinding {
                 severity: FindingSeverity::Warning,
                 file: file.to_string(),
-                message: format!("pull_request_target requires explicit threat review near line {}", line_no + 1),
+                message: format!(
+                    "pull_request_target requires explicit threat review near line {}",
+                    line_no + 1
+                ),
             });
         }
         if lower.contains("permissions:") && lower.contains("write-all") {
             findings.push(ValidationFinding {
                 severity: FindingSeverity::Critical,
                 file: file.to_string(),
-                message: format!("workflow uses write-all permissions near line {}", line_no + 1),
+                message: format!(
+                    "workflow uses write-all permissions near line {}",
+                    line_no + 1
+                ),
             });
         }
         if lower.starts_with("if:") && lower.contains("secrets.") {
             findings.push(ValidationFinding {
                 severity: FindingSeverity::Warning,
                 file: file.to_string(),
-                message: format!("workflow references secrets directly in if conditional near line {}", line_no + 1),
+                message: format!(
+                    "workflow references secrets directly in if conditional near line {}",
+                    line_no + 1
+                ),
             });
         }
     }
