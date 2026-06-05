@@ -52,6 +52,11 @@ pub enum SpecCommand {
         /// The change directory (e.g. `openspec/changes/<change>`).
         change_dir: PathBuf,
     },
+    /// Inspect Architecture Decision Records (in-force set / next number).
+    Adr {
+        #[command(subcommand)]
+        command: crate::commands::spec_adr::AdrCommand,
+    },
 }
 
 /// Dispatch a `spec` subcommand, returning a process exit code.
@@ -67,6 +72,7 @@ pub fn run(cmd: SpecCommand) -> i32 {
         SpecCommand::Show { file } => cmd_show(&file),
         SpecCommand::Status { change_dir } => crate::commands::spec_status::run_status(&change_dir),
         SpecCommand::Next { change_dir } => crate::commands::spec_status::run_next(&change_dir),
+        SpecCommand::Adr { command } => crate::commands::spec_adr::run(command),
     }
 }
 
