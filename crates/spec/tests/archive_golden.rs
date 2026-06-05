@@ -84,3 +84,41 @@ fn round_trip_base_spec_stability() {
     let re = parse_spec(&emit_spec(&doc));
     assert_eq!(doc, re);
 }
+
+// ---- RENAME + MODIFY of the same requirement (U5, oracle-verified) ----
+
+const RM_BASE: &str =
+    include_str!("../../../docs/rusty-idd/oracle-fixtures/06-rename-modify-base.md");
+const RM_DELTA: &str =
+    include_str!("../../../docs/rusty-idd/oracle-fixtures/07-rename-modify-delta.md");
+const RM_RESULT: &str =
+    include_str!("../../../docs/rusty-idd/oracle-fixtures/08-rename-modify-result.md");
+
+/// A delta that RENAMES `Export filename` → `Exported file naming` and MODIFIES
+/// the SAME requirement (referencing the NEW name) must merge to the oracle's
+/// archived result: rename applied in place, body+scenario replaced, position
+/// kept. Captured from `@fission-ai/openspec@1.4.1` (design §7, now verified).
+#[test]
+fn rename_and_modify_same_requirement_matches_oracle() {
+    let base = parse_spec(RM_BASE);
+    let delta = parse_delta(RM_DELTA);
+    let merged = apply_delta(&base, &delta).expect("rename+modify must merge");
+
+    let from_emitted = parse_spec(&emit_spec(&merged));
+    let from_oracle = parse_spec(RM_RESULT);
+    assert_eq!(
+        from_emitted, from_oracle,
+        "rename+modify-same-requirement model must equal the oracle's result"
+    );
+
+    // Spell out the load-bearing facts: position kept, renamed, body modified.
+    let names: Vec<&str> = merged
+        .requirements
+        .iter()
+        .map(|r| r.name.as_str())
+        .collect();
+    assert_eq!(names, vec!["CSV export", "Exported file naming"]);
+    assert!(merged.requirements[1].body[0]
+        .text
+        .contains("timestamp suffix"));
+}
