@@ -40,6 +40,18 @@ pub enum SpecCommand {
         /// Path to the spec markdown file.
         file: PathBuf,
     },
+    /// Show a change's artifact-DAG status (which artifacts are done/ready) and
+    /// whether it is archivable.
+    Status {
+        /// The change directory (e.g. `openspec/changes/<change>`).
+        change_dir: PathBuf,
+    },
+    /// Print the next ready artifact for a change (scriptable), per the schema
+    /// DAG.
+    Next {
+        /// The change directory (e.g. `openspec/changes/<change>`).
+        change_dir: PathBuf,
+    },
 }
 
 /// Dispatch a `spec` subcommand, returning a process exit code.
@@ -53,6 +65,8 @@ pub fn run(cmd: SpecCommand) -> i32 {
             yes,
         } => crate::commands::spec_archive::run(&change_dir, skip_specs, no_validate, yes),
         SpecCommand::Show { file } => cmd_show(&file),
+        SpecCommand::Status { change_dir } => crate::commands::spec_status::run_status(&change_dir),
+        SpecCommand::Next { change_dir } => crate::commands::spec_status::run_next(&change_dir),
     }
 }
 
