@@ -1,10 +1,13 @@
-//! Archive semantic golden test (the GATE item 1).
+//! Archive golden tests.
 //!
-//! Parse `01-base-spec.md` + `02-delta-spec.md`, merge, emit; then parse BOTH
-//! the emitted output and `03-archived-result.md` into `SpecDoc` and assert the
-//! MODELS are equal. This proves correct merge semantics independent of
-//! whitespace (byte-exact parity with the oracle's quirky formatter is an
-//! explicit NON-goal).
+//! Two gates over `(01-base + 02-delta) → 03-archived` (and the U5 rename+modify
+//! fixtures `06/07/08`):
+//! 1. **Semantic** (primary): parse both the emitted output and the oracle file
+//!    into `SpecDoc` and assert the MODELS are equal — proves merge semantics
+//!    independent of whitespace.
+//! 2. **Byte-exact** (U6): `emit_spec` of the merged model equals the oracle
+//!    file byte-for-byte (the oracle's blank-line tightening + trailing blank
+//!    line, reproduced in `parse/emit.rs`).
 
 use rusty_idd_spec::{apply_delta, emit_spec, parse_delta, parse_spec};
 
@@ -26,6 +29,36 @@ fn archive_produces_semantically_equal_model() {
     assert_eq!(
         from_emitted, from_oracle,
         "merged model must equal the oracle's archived model"
+    );
+}
+
+/// U6: byte-exact parity. `emit_spec` of the merged model must equal the oracle's
+/// archived file **byte-for-byte** (blank-line tightening + trailing newline).
+/// The semantic test above remains the primary gate; this locks the formatter.
+#[test]
+fn archive_emit_is_byte_identical_to_oracle() {
+    let base = parse_spec(BASE);
+    let delta = parse_delta(DELTA);
+    let merged = apply_delta(&base, &delta).expect("merge must succeed");
+
+    let emitted = emit_spec(&merged);
+    assert_eq!(
+        emitted, EXPECTED,
+        "emit must byte-match oracle 03-archived-result.md"
+    );
+}
+
+/// U6: the same byte-exact gate for the RENAME+MODIFY fixture (08).
+#[test]
+fn archive_emit_rename_modify_is_byte_identical_to_oracle() {
+    let base = parse_spec(RM_BASE);
+    let delta = parse_delta(RM_DELTA);
+    let merged = apply_delta(&base, &delta).expect("merge must succeed");
+
+    assert_eq!(
+        emit_spec(&merged),
+        RM_RESULT,
+        "emit must byte-match oracle 08-rename-modify-result.md"
     );
 }
 
@@ -72,9 +105,16 @@ fn emit_is_well_formed_and_idempotent() {
     let twice = emit_spec(&parse_spec(&once));
     assert_eq!(once, twice, "emit must be idempotent");
 
-    // Well-formed: ends in exactly one trailing newline.
-    assert!(once.ends_with('\n'));
-    assert!(!once.ends_with("\n\n"));
+    // Well-formed: ends in the oracle's trailing blank line (`\n\n`), and never
+    // more than that.
+    assert!(
+        once.ends_with("\n\n"),
+        "oracle ends each file with a blank line"
+    );
+    assert!(
+        !once.ends_with("\n\n\n"),
+        "no more than one trailing blank line"
+    );
 }
 
 #[test]
