@@ -2,8 +2,8 @@
 
 _Checkpoint written: 2026-06-06. Authoritative cold-start resume signal (committed to disk, not the weave inbox)._
 
-## Status: CYCLING — 3 cycles done this session (A1, A2, A3). Cycle budget (3) reached → handed off.
-Epic A is 50% complete: **A1, A2, A3 all `[x]` + verified.** Next session RESUMEs and runs **cycle 1 at backlog item A4**.
+## Status: EPIC A COMPLETE (A1–A6 all `[x]` + verified). Cycle budget (3) reached → handed off.
+This session ran A4, A5, A6 (the prior session ran A1–A3). Next session RESUMEs and runs **cycle 1 at backlog item B1** (Epic B — runtime robustness).
 
 ## Resume command
 ```
@@ -11,37 +11,45 @@ Epic A is 50% complete: **A1, A2, A3 all `[x]` + verified.** Next session RESUME
 ```
 Unattended: `bash .claude/skills/idd-merge-loop/scripts/ralph-idd.sh` (SAFE) · `IDD_APPLY=1 bash .../ralph-idd.sh` (apply) · `touch _workspace/STOP` (kill switch).
 
-## What shipped this session
-- **A1** (PR **#26**, MERGED → develop `4b5cba2`): fail-closed `cargo audit` gate added to the required `rust` CI job (`taiki-e/install-action` + `cargo audit --deny warnings`); shared baseline `.cargo/audit.toml`.
-- **A2** (PR **#27**, MERGED → develop `2bfcb4f`): `time` 0.3.41 → **0.3.47** (forward, `--precise`; remediates RUSTSEC-2026-0009). Removed the obsolete `--ignore` from the develop gate. Cleared the promote-verify `time` wall.
-- **A3** (this checkpoint's PR — OPEN, auto-merge squash armed; PR# recorded in `loop_state.md` open_pr): bincode/yaml-rust **accepted-risk** (no upgrade path; syntect 5.3.0 latest still pulls them, and dropping `syntect` would remove the TUI `highlight-code` capability = forbidden downgrade). Both are unmaintained-warnings, not vulns. Recorded `docs/rusty-idd/security-advisories.md` + `.cargo/audit.toml` rationale. Bundles this `HANDOFF.md`.
+## What shipped (all merged to develop unless noted)
+| Slice | PR | What |
+|---|---|---|
+| A1 | #26 ✅ | fail-closed `cargo audit` CI gate + shared `.cargo/audit.toml` |
+| A2 | #27 ✅ | `time` 0.3.41→0.3.47 (RUSTSEC-2026-0009 fixed) |
+| A3 | #28 ✅ | bincode/yaml-rust accepted-risk (`docs/rusty-idd/security-advisories.md`) |
+| A4 | #29 ✅ | pin CI toolchain `@1.96.0` + `msrv` job `@1.88.0`; `rust-version` (core=1.74, rest=1.88) |
+| A5 | #30 ✅ | flake.nix hard `rustc>=1.88` assertion (dev shell can't drift below floor) |
+| A6 | **this PR — OPEN, auto-merge armed** | dup-versions = documented no-op (`docs/rusty-idd/dependency-duplication.md`); bundles this HANDOFF.md |
 
-## This session's open PR (reconcile BEFORE picking a base)
-- **A3 = the run PR** (`syntect-unmaintained` → develop), **auto-merge squash enabled**, fail-closed on required `rust`. On resume: **sync, then check it.** If **merged** → branch A4 off the advanced `origin/develop`. If **still open + green/pending** → branch A4 off `syntect-unmaintained` (stack). If **red** → fix that first (or `NEEDS-HUMAN`), not A4.
-- A1/A2 PRs (#26/#27) already merged — do not reopen.
+develop head before A6: `b07f7fb`. **A6 PR# is recorded in `loop_state.md` open_pr** (find via `gh pr list --head dedup-deps`).
 
-## ⚠️ Race lesson baked into policy (loop_state.md "Race lesson" + pr_policy)
-A1+A2 were first stacked as 2 commits on ONE auto-merging PR; CI greened the 1st commit and GitHub merged the PR before the 2nd commit landed, stranding A2. Recovered via cherry-pick onto a fresh branch. **RULE: ONE PR PER CYCLE.** Never add a commit to a PR that already has auto-merge armed. If the prior cycle's PR is still open, branch the next cycle off ITS branch (stack); else off the advanced develop.
+## Reconcile the A6 PR BEFORE picking a base (one-PR-per-cycle rule)
+- A6 is the run PR (`dedup-deps` → develop), auto-merge squash armed, fail-closed on `rust`. On resume: **sync, check it.** Merged → branch B1 off advanced `origin/develop`. Still open + green/pending → branch B1 off `dedup-deps` (stack). Red → fix that first (or `NEEDS-HUMAN`), not B1.
+- A1–A5 PRs already merged — don't reopen.
+
+## ⚠️ Hard-won policy (already baked into loop_state.md + pr_policy)
+- **ONE PR PER CYCLE.** Never add a commit to a PR that already has auto-merge armed (fast CI merges it before the 2nd commit lands — A1/A2 hit this, recovered by cherry-pick). This session waited for each PR to merge, then branched the next cycle off clean develop — worked cleanly for A4→A5→A6.
+- `origin` (drdave-flexnetos) is a redirect alias for canonical `FlexNetOS/idd-merge-idd` (one repo). gh PR head OID can lag a few seconds after push — re-check via `git ls-remote`/refs API if it looks stale.
 
 ## Backlog (truth = `_workspace/backlog.md`, 25 slices)
-Done: **A1, A2, A3** `[x]`. **Next item: A4** · pin CI toolchain + add MSRV/edition-2024 floor job (ci.yml uses `@stable`; add `rust-version` to every crate: core=1.74, spec/cli ≥ core, runner/tui edition-2024 ⇒ ≥1.85). Then A5 (pin flake.nix toolchain ≥1.85), A6 (collapse duplicate transitive versions). Then Epics B→C→D→E.
+**Epic A DONE (A1–A6).** Next: **B1** · `crates/runner/src/runner.rs` — replace the 14 `lock().unwrap()` with poison-tolerant recovery (no panic-on-poison); test asserts a poisoned mutex doesn't crash. Then B2 (stop swallowing `tx.send`/`child.kill`/`write_*` failures), B3 (data.rs missing-vs-corrupt), B4 (spec schema `expect`→graceful). Then Epics C (tests), D (feature/spec completeness), E (docs/harness).
 Mandate: rusty-idd = all 3 source projects unified. **Invariant: UPGRADE ONLY / NO DOWNGRADES** (suite only grows from 429; no dep downgraded; core stays zero-dep; gates never weakened).
 
-## Open blockers / NEEDS-HUMAN
-- None. No `STOP`. `cargo audit` is GREEN (time fixed; 2 unmaintained warnings accepted-risk). **develop→main promotion is now UNBLOCKED** (the time wall cleared) — but promotion only happens on full backlog DONE, not now.
+## State of the supply chain after Epic A
+- `cargo audit` clean (the only ignores are the 2 accepted unmaintained warnings from the optional/unused syntect path; `time` fixed). **develop→main promotion is UNBLOCKED** — but promotion only happens on full-backlog DONE (Epics B–E remain), so NO promotion PR yet.
+- MSRV floor = **1.88** (edition 2024 + let-chains + time 0.3.47 + ratatui 0.30), enforced by per-crate `rust-version`, CI `msrv` job, and the flake assertion. core stays 1.74.
+- Toolchain DETAIL for B-work: `crates/runner`/`tui` are edition 2024; runner.rs uses `let … && let …` chains (need rustc ≥1.88 — installed locally: 1.85.0, 1.88.0, 1.96.0).
 
-## Decisions & dead-ends (don't re-litigate)
-- A3 is accepted-risk by design — do NOT try to force-drop syntect (would delete TUI highlight-code = downgrade). Re-evaluate only when syntect publishes a release dropping bincode/yaml-rust (triggers in security-advisories.md).
-- `.cargo/audit.toml` is SHARED (read by both ci.yml and promote-verify.yml). Never put a *vulnerability* there — only accepted unmaintained-warnings. Vulns get fixed forward or tolerated via a per-workflow `--ignore` flag, never the shared file.
-- `origin` (drdave-flexnetos/idd-merge-idd) is a redirect alias for the canonical `FlexNetOS/idd-merge-idd` (one repo, not a fork). `gh`/`git` both resolve there; gh PR head OID can lag a few seconds after push — re-check via `git ls-remote` / the refs API if it looks stale.
+## Open blockers / NEEDS-HUMAN
+- None. No `STOP`. (A local `cargo audit` fetch hit a transient network error once; `--no-fetch` against the cached db is clean — it's a network blip, not a finding. CI runners fetch fine.)
 
 ## Verify-on-resume (run FIRST; confirm green before new work)
 ```bash
 cargo run --quiet --bin rusty-idd -- validate          # expect 0 critical / 11 warning
 bash .claude/skills/merge-verification/scripts/drift-check.sh .   # exit 0
-cargo audit --deny warnings                             # exit 0 (accepted-risk baseline; fails on any NEW advisory)
+cargo audit --deny warnings                             # exit 0 (retry/--no-fetch if a transient fetch error)
 rtk cargo fmt --all -- --check
 rtk cargo clippy --workspace --all-targets --all-features -- -D warnings
-rtk cargo test --workspace --locked                     # expect 429 passed (baseline; only grows)
+rtk cargo test --workspace --locked                     # expect 429 passed (baseline; only grows — B-work ADDS tests)
 ```
-Last known-green on develop after A1+A2: 429 tests / drift 0 / fmt+clippy clean / audit clean. A3 changes no compiled input.
+Last known-green on develop after A1–A5: 429 tests / drift 0 / fmt+clippy clean / audit clean. A6 changes no compiled input.
