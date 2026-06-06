@@ -1,67 +1,54 @@
 # HANDOFF — idd-merge-loop
 
-_Checkpoint written: 2026-06-05T06:58:33Z. Authoritative cold-start resume signal (not the weave inbox)._
+_Checkpoint written: 2026-06-06. Authoritative cold-start resume signal (not the weave inbox)._
 
-## Status: IDLE — no in-flight loop. Both epics complete; `main` clean.
-
-There is **no slice in flight** and the backlog is **clear**. This is a clean-slate
-checkpoint: a resume should confirm the green baseline, then either DISCOVER a new
-backlog (new work) or stop (nothing to do).
+## Status: READY TO CYCLE — setup session complete, loop has NOT started cycling yet.
+A fresh 25-slice backlog (Epics A–E) is seeded and the develop/main branching model is live.
+The next session RESUMEs and runs **cycle 1 at backlog item A1**. No slice is in flight.
 
 ## Resume command
 ```
 /idd-merge-loop resume from _workspace/HANDOFF.md
 ```
-Unattended variants (external runner; see CLAUDE.md):
-```
-bash .claude/skills/idd-merge-loop/scripts/ralph-idd.sh                 # SAFE (no auto-apply)
-IDD_APPLY=1 bash .claude/skills/idd-merge-loop/scripts/ralph-idd.sh     # unattended + apply
-touch _workspace/STOP                                                   # kill switch
-```
+Unattended (external runner): `bash .claude/skills/idd-merge-loop/scripts/ralph-idd.sh` (SAFE) ·
+`IDD_APPLY=1 bash .../ralph-idd.sh` (apply) · `touch _workspace/STOP` (kill switch).
 
-## Worktree + branch
-- Repo: `~/Desktop/idd-merge-idd` (integration root).
-- Branch: `main`, **level with `origin/main`** (HEAD `86feeec`). Working tree clean.
-- Next session: per CLAUDE.md, cut a fresh worktree off the synced base before any code change:
-  `rtk git worktree add ../idd-<slug> -b <slug> origin/main`.
-  **Do not** name a worktree with the substring `archive` (trips `tui::test_find_change_dir_active`).
+## Branching model (NEW this session — read before any git op)
+- **`develop` = default + integration branch.** Protected: required check **`rust`**, no reviews. The loop has full auto-merge access here.
+- **`main` = protected release trunk.** Required checks **`rust` + `promote-verify`**, no reviews. Reached ONLY via a `develop`→`main` promotion PR. **NEVER push or admin-merge `main` directly** (the safety classifier enforces this).
+- Repo: `allow_auto_merge=true`, `delete_branch_on_merge=true`.
+- **Dev work branches off `origin/develop`** (worktree `../idd-<slug>`, NO "archive" substring), one slice/cycle, **commit + push every cycle**, PR `--base develop` opened on cycle 1 with `gh pr merge --auto --squash` (fail-closed on `rust`).
+- **On DONE (backlog clear):** open a `develop`→`main` promotion PR with auto-merge. `promote-verify` runs `cargo audit` → **it will BLOCK promotion until A2 fixes the `time` CVE** (by design — main only gets clean code).
 
-## Backlog status
-- **0 todo / 0 blocked.** No `_workspace/backlog.md` yet — none needed; nothing pending.
-- If new work arrives, DISCOVER seeds it: `cargo run --quiet --bin rusty-idd -- scan/plan` + `docs/rusty-idd/slice-sequence.md`.
+## This run's PR
+- Handoff/continuity PR (this checkpoint): **PR #25 → develop, auto-merge squash enabled** (continuity files only; harness code already on develop). On resume: if merged → branch off advanced `origin/develop`; if still open → branch off its branch (`loop/handoff-setup`).
+- No code/slice PR is in flight.
 
-## In-flight cycle
-- None. `cycles_this_session` n/a (loop has not been run; this checkpoint was written by hand at session wrap-up).
+## Backlog (truth = `_workspace/backlog.md`, 25 slices, dependency order)
+Next item: **A1 · add a `cargo audit` CI gate** → then **A2 · fix RUSTSEC-2026-0009 (`time` 0.3.41 → ≥0.3.47), forward only**. Epics: A supply-chain (audit RED today) → B robustness → C tests → D feature/spec completeness → E docs/harness.
+Mandate: rusty-idd = all 3 source projects' features+capabilities+specs unified. **Invariant: UPGRADE ONLY / NO DOWNGRADES** (no capability removed, suite only grows from 429, no dep downgraded, core stays zero-dep, gates never weakened).
 
-## Landed this session (all merged to `main`)
-- **"Upgrades + fixes" epic — PRs #13–#21** (9 slices, each gate-green):
-  #13 flake.nix retarget · #14 `spec validate --strict` summary/exit reconcile ·
-  #15 runner `serde_yaml`→`serde_norway` · #16 `spec archive --no-validate/-y` wiring ·
-  #17 RENAME+MODIFY op-order pinned to oracle (fixed an inverted merge) · #18 byte-exact `emit_spec` ·
-  #19 `schema/` edge (`spec status`/`next`) · #20 `adr/` edge (`spec adr`) · #21 `scaffold/` edge (`spec new`/`scaffold`).
-  Test count 387 → 429.
-- **Harness upgrade — PR #22**: added `idd-merge-loop` + `session-relay` skills, `continuity-steward`
-  agent, `scripts/ralph-idd.sh` runner (opt-in `IDD_APPLY=1`), `_workspace/.gitignore`, CLAUDE.md
-  trigger pointer + change-history rows.
+## Landed this session (all on `origin/develop`, commits 776aa21 + f890571)
+- Deep codebase audit (6 parallel audits + `cargo audit` + verification) — found: live `time` CVE + 2 unmaintained deps; CI uses `@stable` (no MSRV floor); runner silent-failure/panic surfaces; fs_utils/parse-emit test holes; doc drift (stale READMEs, byte-exact contradiction); parity gaps (validate subset, `sync` verb, no oracle harness).
+- Fresh backlog (`_workspace/backlog.md`) + `loop_state.md`; retired the prior epic's stale `DONE` → `DONE.prev-epic`.
+- Mandatory PR + auto-merge policy and develop/main branching model baked into: `idd-merge-loop/SKILL.md` (principle 9 + Branch & PR lifecycle), `session-relay/SKILL.md`, `scripts/ralph-idd.sh`, `.github/workflows/promote-verify.yml` (new), `CLAUDE.md`.
+- Repo settings + branch protection applied (above). `promote-verify.yml` seeded to main via auto-merged PR #24.
 
-## Open findings / blockers
-- None. No `NEEDS-HUMAN` walls. Lifecycle engine (`crates/spec`) is feature-complete
-  (model/parse/emit byte-exact/validate/archive/schema/adr/scaffold); `cli/` edge in `crates/cli`.
+## Open blockers / NEEDS-HUMAN
+- None. No `STOP`. `cargo audit` is RED (the `time` CVE) — that's backlog A2, not a wall; it only blocks `develop`→`main` promotion until fixed.
 
 ## Decisions & dead-ends (don't re-litigate)
-- Byte-exact `emit_spec` is achieved by a hand-rolled tightening emitter, **not** by tuning
-  `format_commonmark` options (design §7 "Splice vs rebuild" → rebuild won).
-- RENAME applies **before** MODIFY/REMOVE; a MODIFIED referencing the old name aborts (oracle-verified, fixtures 06–08).
-- Unattended apply is the **runner** (`IDD_APPLY=1`), not a slash command — an agent can't type `/new`.
-- `_workspace/` audit intermediates (`0{1,2,3,4}_*.md`) stay **untracked**; only `backlog.md`/`loop_state.md`/`HANDOFF.md` are committed.
-- CLAUDE.md "Change history" now carries the epic + harness rows (chose this over a separate doc).
+- Auto-merge is **fail-closed** via branch protection (required checks), NOT by merging blindly — `main` was unprotected, so protection was added. Do not merge red.
+- No `--admin`/direct merges to `main` — classifier-enforced; bootstrap of the gate workflow used an auto-merged PR (#24).
+- Harness changes were direct-pushed to `develop` during bootstrap; from now on everything goes via PR `--base develop`.
+- `main`'s harness docs lag `develop` until the first clean promotion (post-A2) — expected; the loop reads skills/CLAUDE from `develop` worktrees.
 
 ## Verify-on-resume (run FIRST; confirm green before new work)
 ```bash
-cargo run --quiet --bin rusty-idd -- validate          # fail-closed: CRITICAL -> non-zero
-bash .claude/skills/merge-verification/scripts/drift-check.sh .   # exit 0 = no Rust-native drift
+cargo run --quiet --bin rusty-idd -- validate          # fail-closed: CRITICAL -> non-zero (expect 0 critical / ~11 warning)
+bash .claude/skills/merge-verification/scripts/drift-check.sh .   # exit 0
 rtk cargo fmt --all -- --check
 rtk cargo clippy --workspace --all-targets --all-features -- -D warnings
-rtk cargo test --workspace --locked                    # expect: 429 passed
+rtk cargo test --workspace --locked                    # expect 429 passed (baseline; only grows)
 ```
-Last known-green: all of the above on `86feeec` (drift 0, fmt clean, clippy clean, 429 tests).
+Last known-green: 429 tests / drift 0 / fmt+clippy clean at `1029091` (develop adds only docs on top — no code change).
