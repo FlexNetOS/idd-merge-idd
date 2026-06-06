@@ -164,6 +164,10 @@ impl App {
                         result = Some(false);
                         break;
                     }
+                    runner::ImplUpdate::Error(_) => {
+                        result = Some(false);
+                        break;
+                    }
                 }
             }
             result

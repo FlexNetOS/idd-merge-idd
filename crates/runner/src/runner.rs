@@ -11,10 +11,12 @@ use crate::config::TuiConfig;
 use crate::data;
 
 /// Messages sent from the worker thread to the TUI.
+#[derive(Debug)]
 pub enum ImplUpdate {
     Progress { completed: u32, total: u32 },
     Finished { success: bool },
     Stalled,
+    Error(String),
 }
 
 /// State for a running implementation process.
@@ -142,7 +144,9 @@ pub fn stop_implementation(state: &ImplState) {
     if let Ok(mut handle) = state.child_handle.lock()
         && let Some(ref mut child) = *handle
     {
-        let _ = child.kill();
+        if let Err(e) = child.kill() {
+            eprintln!("Failed to kill child process {}: {}", child.id(), e);
+        }
     }
 }
 
@@ -289,21 +293,38 @@ fn apply_run(
     child_handle: &Arc<Mutex<Option<Child>>>,
     config: &TuiConfig,
 ) {
-    let _ = write_run_header(log_path, change_name);
+    if let Err(e) = write_run_header(log_path, change_name) {
+        let msg = format!("Failed to write run header to {}: {}", log_path.display(), e);
+        if tx.send(ImplUpdate::Error(msg.clone())).is_err() {
+            eprintln!("Intent: {}", msg);
+        }
+    }
 
     let prompt = format!("/opsx:apply {}", change_name);
 
     let log_file = match OpenOptions::new().create(true).append(true).open(log_path) {
         Ok(f) => f,
-        Err(_) => {
-            let _ = tx.send(ImplUpdate::Finished { success: false });
+        Err(e) => {
+            let msg = format!("Failed to open log file {}: {}", log_path.display(), e);
+            if tx.send(ImplUpdate::Error(msg.clone())).is_err() {
+                eprintln!("Intent: {}", msg);
+            }
+            if tx.send(ImplUpdate::Finished { success: false }).is_err() {
+                eprintln!("Intent: Finished {{ success: false }}");
+            }
             return;
         }
     };
     let stderr_log = match log_file.try_clone() {
         Ok(f) => f,
-        Err(_) => {
-            let _ = tx.send(ImplUpdate::Finished { success: false });
+        Err(e) => {
+            let msg = format!("Failed to clone log file handle for {}: {}", log_path.display(), e);
+            if tx.send(ImplUpdate::Error(msg.clone())).is_err() {
+                eprintln!("Intent: {}", msg);
+            }
+            if tx.send(ImplUpdate::Finished { success: false }).is_err() {
+                eprintln!("Intent: Finished {{ success: false }}");
+            }
             return;
         }
     };
@@ -315,15 +336,27 @@ fn apply_run(
             .stderr(Stdio::from(stderr_log))
             .spawn(),
         None => {
-            let _ = tx.send(ImplUpdate::Finished { success: false });
+            let msg = format!("Failed to build command for prompt: {}", prompt);
+            if tx.send(ImplUpdate::Error(msg.clone())).is_err() {
+                eprintln!("Intent: {}", msg);
+            }
+            if tx.send(ImplUpdate::Finished { success: false }).is_err() {
+                eprintln!("Intent: Finished {{ success: false }}");
+            }
             return;
         }
     };
 
     let child = match child_result {
         Ok(c) => c,
-        Err(_) => {
-            let _ = tx.send(ImplUpdate::Finished { success: false });
+        Err(e) => {
+            let msg = format!("Failed to spawn process: {}", e);
+            if tx.send(ImplUpdate::Error(msg.clone())).is_err() {
+                eprintln!("Intent: {}", msg);
+            }
+            if tx.send(ImplUpdate::Finished { success: false }).is_err() {
+                eprintln!("Intent: Finished {{ success: false }}");
+            }
             return;
         }
     };
@@ -365,7 +398,9 @@ fn apply_run(
         return;
     }
 
-    let _ = tx.send(ImplUpdate::Finished { success: exited_ok });
+    if tx.send(ImplUpdate::Finished { success: exited_ok }).is_err() {
+        eprintln!("Intent: Finished {{ success: {} }}", exited_ok);
+    }
 }
 
 /// Maximum consecutive runs with no task progress before aborting.
@@ -381,7 +416,12 @@ fn implementation_loop(
     config: &TuiConfig,
 ) {
     // Write run header before starting the task loop
-    let _ = write_run_header(log_path, change_name);
+    if let Err(e) = write_run_header(log_path, change_name) {
+        let msg = format!("Failed to write run header to {}: {}", log_path.display(), e);
+        if tx.send(ImplUpdate::Error(msg.clone())).is_err() {
+            eprintln!("Intent: {}", msg);
+        }
+    }
 
     // Stall detection: track consecutive runs without progress
     let mut stall_count: u32 = 0;
@@ -407,17 +447,34 @@ fn implementation_loop(
         // Open log file for appending
         let log_file = match OpenOptions::new().create(true).append(true).open(log_path) {
             Ok(f) => f,
-            Err(_) => break,
+            Err(e) => {
+                let msg = format!("Failed to open log file {}: {}", log_path.display(), e);
+                if tx.send(ImplUpdate::Error(msg.clone())).is_err() {
+                    eprintln!("Intent: {}", msg);
+                }
+                break;
+            }
         };
         let stderr_log = match log_file.try_clone() {
             Ok(f) => f,
-            Err(_) => break,
+            Err(e) => {
+                let msg = format!("Failed to clone log file handle for {}: {}", log_path.display(), e);
+                if tx.send(ImplUpdate::Error(msg.clone())).is_err() {
+                    eprintln!("Intent: {}", msg);
+                }
+                break;
+            }
         };
 
         // Write task header before spawning claude
         let (_, total) = data::parse_task_progress(tasks_path).unwrap_or((0, 0));
         if let Some((task_num, task_text)) = data::next_unchecked_task(tasks_path) {
-            let _ = write_task_header(log_path, task_num, total, &task_text);
+            if let Err(e) = write_task_header(log_path, task_num, total, &task_text) {
+                let msg = format!("Failed to write task header to {}: {}", log_path.display(), e);
+                if tx.send(ImplUpdate::Error(msg.clone())).is_err() {
+                    eprintln!("Intent: {}", msg);
+                }
+            }
         }
 
         let prompt = config.render_prompt(change_name);
@@ -429,12 +486,22 @@ fn implementation_loop(
                 .stdout(Stdio::from(log_file))
                 .stderr(Stdio::from(stderr_log))
                 .spawn(),
-            None => break,
+            None => {
+                let msg = format!("Failed to build command for prompt: {}", prompt);
+                if tx.send(ImplUpdate::Error(msg.clone())).is_err() {
+                    eprintln!("Intent: {}", msg);
+                }
+                break;
+            }
         };
 
         let child = match child_result {
             Ok(c) => c,
-            Err(_) => {
+            Err(e) => {
+                let msg = format!("Failed to spawn process for task: {}", e);
+                if tx.send(ImplUpdate::Error(msg.clone())).is_err() {
+                    eprintln!("Intent: {}", msg);
+                }
                 // Spawn failure counts toward stall detection
                 stall_count += 1;
                 if stall_count >= STALL_THRESHOLD {
@@ -474,7 +541,13 @@ fn implementation_loop(
                     // Process still running, wait briefly before polling again
                     std::thread::sleep(std::time::Duration::from_millis(100));
                 }
-                Err(_) => break false,
+                Err(e) => {
+                    let msg = format!("Error waiting for process: {}", e);
+                    if tx.send(ImplUpdate::Error(msg.clone())).is_err() {
+                        eprintln!("Intent: {}", msg);
+                    }
+                    break false;
+                }
             }
         };
 
@@ -506,6 +579,7 @@ fn implementation_loop(
         }
 
         if tx.send(ImplUpdate::Progress { completed, total }).is_err() {
+            eprintln!("Failed to send Progress update: {}/{}", completed, total);
             break;
         }
 
@@ -522,7 +596,9 @@ fn implementation_loop(
     }
 
     if stalled {
-        let _ = tx.send(ImplUpdate::Stalled);
+        if tx.send(ImplUpdate::Stalled).is_err() {
+            eprintln!("Intent: Stalled");
+        }
         return;
     }
 
@@ -533,7 +609,7 @@ fn implementation_loop(
         && let Some((binary, args)) = config.build_command(&post_prompt)
     {
         // Open log file for hook output
-        let hook_ok = match OpenOptions::new().create(true).append(true).open(log_path) {
+        let hook_result = match OpenOptions::new().create(true).append(true).open(log_path) {
             Ok(log_file) => {
                 match log_file.try_clone() {
                     Ok(stderr_log) => {
@@ -569,7 +645,13 @@ fn implementation_loop(
                                                 100,
                                             ));
                                         }
-                                        Err(_) => break false,
+                                        Err(e) => {
+                                            let msg = format!("Error waiting for hook process: {}", e);
+                                            if tx.send(ImplUpdate::Error(msg.clone())).is_err() {
+                                                eprintln!("Intent: {}", msg);
+                                            }
+                                            break false;
+                                        }
                                     }
                                 };
                                 // Clear child handle
@@ -577,22 +659,31 @@ fn implementation_loop(
                                     let mut handle = child_handle.lock().unwrap_or_else(|e| e.into_inner());
                                     *handle = None;
                                 }
-                                exited_ok
+                                Ok(exited_ok)
                             }
-                            Err(_) => false,
+                            Err(e) => Err(format!("Failed to spawn hook process: {}", e)),
                         }
                     }
-                    Err(_) => false,
+                    Err(e) => Err(format!("Failed to clone log file for hook: {}", e)),
                 }
             }
-            Err(_) => false,
+            Err(e) => Err(format!("Failed to open log file for hook: {}", e)),
         };
-        if !hook_ok {
-            success = false;
+
+        match hook_result {
+            Ok(ok) => success = ok,
+            Err(msg) => {
+                if tx.send(ImplUpdate::Error(msg.clone())).is_err() {
+                    eprintln!("Intent: {}", msg);
+                }
+                success = false;
+            }
         }
     }
 
-    let _ = tx.send(ImplUpdate::Finished { success });
+    if tx.send(ImplUpdate::Finished { success }).is_err() {
+        eprintln!("Intent: Finished {{ success: {} }}", success);
+    }
 }
 
 #[cfg(test)]
@@ -638,8 +729,8 @@ mod tests {
                 assert_eq!(completed, 3);
                 assert_eq!(total, 5);
             }
-            ImplUpdate::Finished { .. } | ImplUpdate::Stalled => {
-                panic!("Expected Progress, got Finished/Stalled")
+            _ => {
+                panic!("Expected Progress, got {:?}", msg)
             }
         }
     }
@@ -904,7 +995,11 @@ mod tests {
             &config,
         );
 
-        // Should receive Stalled after 3 consecutive spawn failures
+        // Should receive 3 Errors then Stalled after 3 consecutive spawn failures
+        for _ in 0..3 {
+            let msg = rx.recv().unwrap();
+            assert!(matches!(msg, ImplUpdate::Error(_)));
+        }
         let msg = rx.recv().unwrap();
         assert!(matches!(msg, ImplUpdate::Stalled));
     }
@@ -1167,7 +1262,11 @@ mod tests {
             &config,
         );
 
-        // Should receive Stalled after 3 consecutive spawn failures
+        // Should receive 3 Errors then Stalled after 3 consecutive spawn failures
+        for _ in 0..3 {
+            let msg = rx.recv().unwrap();
+            assert!(matches!(msg, ImplUpdate::Error(_)));
+        }
         let msg = rx.recv().unwrap();
         assert!(matches!(msg, ImplUpdate::Stalled));
     }
@@ -1214,7 +1313,9 @@ mod tests {
             &config,
         );
 
-        // Should receive Finished { success: false } since empty command means failure
+        // Should receive Error then Finished { success: false }
+        let msg = rx.recv().unwrap();
+        assert!(matches!(msg, ImplUpdate::Error(_)));
         let msg = rx.recv().unwrap();
         assert!(matches!(msg, ImplUpdate::Finished { success: false }));
     }
@@ -1609,7 +1710,7 @@ mod tests {
             match msg {
                 ImplUpdate::Progress { .. } => got_progress = true,
                 ImplUpdate::Stalled => got_stalled = true,
-                ImplUpdate::Finished { .. } => {}
+                ImplUpdate::Finished { .. } | ImplUpdate::Error(_) => {}
             }
         }
         assert!(!got_progress, "Apply mode should not send Progress");
@@ -1790,6 +1891,8 @@ mod tests {
             &config,
         );
 
+        let msg = rx.recv().unwrap();
+        assert!(matches!(msg, ImplUpdate::Error(_)));
         let msg = rx.recv().unwrap();
         assert!(matches!(msg, ImplUpdate::Finished { success: false }));
     }

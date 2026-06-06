@@ -78,6 +78,11 @@ pub fn run(args: RunArgs) -> i32 {
                 exit = 1;
                 break;
             }
+            ImplUpdate::Error(e) => {
+                eprintln!("Error running change '{}': {}", args.change, e);
+                exit = 1;
+                break;
+            }
         }
     }
 
