@@ -2,18 +2,18 @@
 session_started: 2026-06-05T00:00:00Z
 loop: idd-merge-loop
 epic: Complete Delivery + Upgrade (upgrade-only / no-downgrade)
-branch: syntect-unmaintained (A3 PR branch off origin/develop @2bfcb4f, carries A1+A2)
-worktree: ../idd-syntect-unmaintained  (prior merged: cargo-audit-gate #26, time-a2 #27)
+branch: ci-msrv-floor (A4 branch off origin/develop @4a6f8bd, carries A1+A2+A3)
+worktree: ../idd-ci-msrv-floor  (prior merged: #26 #27 #28)
 base_branch: develop          # dev work targets develop; main only via gated promotion PR
 promote_target: main          # develop->main on DONE, gated by rust + promote-verify
 pr_policy: ONE PR PER CYCLE (see race note). per-cycle PR --base develop + auto-merge squash (mandatory). develop protected (required check 'rust') => fail-closed. NEVER push/admin-merge main directly.
-open_pr: A1 -> #26 MERGED (4b5cba2). A2 -> #27 MERGED (2bfcb4f). A3 -> new PR (opening now off develop, branch syntect-unmaintained, bundling HANDOFF.md).
+open_pr: A1 #26, A2 #27, A3 #28 all MERGED to develop (@4a6f8bd). A4 -> opening now (branch ci-msrv-floor).
 cycle_budget: 3
-cycles_this_session: 3
-cycles_total: 3
-last_item: A3 [x] bincode/yaml-rust accepted-risk (no upgrade path — syntect 5.3.0 latest still pulls them; dropping = losing TUI highlight-code capability). Recorded docs/rusty-idd/security-advisories.md + .cargo/audit.toml rationale. No compiled-input change → suite unchanged (429). Gate still fail-closed on new advisories/vulns.
-status: HAND OFF — cycle budget (3) reached. Epic A 50% done (A1-A3 [x]; A4-A6 remain). A1+A2 merged to develop; A3 shipping its own PR (bundles HANDOFF.md). Next session: A4 (pin CI toolchain + MSRV/edition floor).
-last_update: 2026-06-06T01:45:00Z
+cycles_this_session: 1
+cycles_total: 4
+last_item: A4 [x] pin CI toolchain + MSRV floor. Empirically measured floor = 1.88 (NOT guessed 1.85): time@0.3.47⇒1.88, ratatui 0.30⇒1.86, runner let-chains⇒1.88. Declared rust-version core=1.74 / spec,runner,tui,cli=1.88. Pinned rust job @stable→@1.96.0. Added msrv job @1.88.0 (build+test-compile --locked). All gates green; 429 tests. Next: A5 (flake.nix ≥1.88).
+status: CYCLING — A4 done+verified. Opening run PR --base develop w/ auto-merge. Next cycle: A5.
+last_update: 2026-06-06T02:10:00Z
 
 ## ⚠️ Race lesson (auto-merge + fast CI) — POLICY UPDATE
 A1 and A2 were stacked as two commits on ONE branch (PR #26) with auto-merge enabled
