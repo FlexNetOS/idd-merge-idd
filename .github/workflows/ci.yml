@@ -44,8 +44,7 @@ jobs:
         # Fail-closed supply-chain gate. The shared baseline (.cargo/audit.toml) is
         # auto-loaded and ignores the two accepted unmaintained transitive advisories
         # (backlog A3). `--deny warnings` turns any *new* unmaintained/unsound/yanked
-        # advisory into a failure too. The `time` DoS vuln (RUSTSEC-2026-0009) is
-        # tolerated here ONLY via this explicit flag until backlog A2 upgrades `time`
-        # forward (>=0.3.47); it is NOT in the shared baseline, so it still blocks the
-        # develop->main promotion gate (promote-verify.yml). Remove the flag when A2 lands.
-        run: cargo audit --deny warnings --ignore RUSTSEC-2026-0009
+        # advisory into a failure too. The `time` DoS vuln (RUSTSEC-2026-0009) was
+        # remediated by backlog A2 (time >=0.3.47), so it no longer needs an ignore —
+        # the gate now enforces vulnerabilities with zero exceptions.
+        run: cargo audit --deny warnings
