@@ -1,0 +1,49 @@
+name: gemini-loop
+# Autonomous execution of the idd-merge-loop in CI.
+# Triggered manually via workflow_dispatch.
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: 'Set to 1 to opt-in to destructive applies (IDD_APPLY=1)'
+        required: false
+        default: '0'
+      budget:
+        description: 'Cycle budget per run'
+        required: false
+        default: '3'
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  loop:
+    name: idd-merge-loop
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: dtolnay/rust-toolchain@1.96.0
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+
+      # The Gemini CLI is expected to be available or installable.
+      # Since it's a global bun/npm tool, we ensure node/bun is present.
+      - uses: oven-sh/setup-bun@v1
+      - name: Install Gemini CLI
+        run: bun install -g @google/gemini-cli
+
+      - name: Run idd-merge-loop
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IDD_APPLY: ${{ github.event.inputs.apply }}
+          IDD_BUDGET: ${{ github.event.inputs.budget }}
+        run: |
+          # Use yolo approval mode for unattended CI execution.
+          # The Ralph runner uses `gemini -p` which is headless.
+          bash .gemini/skills/idd-merge-loop/scripts/ralph-idd.sh

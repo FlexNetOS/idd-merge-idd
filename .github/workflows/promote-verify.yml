@@ -35,7 +35,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
 
       - name: Rust-native drift gate
-        run: bash .claude/skills/merge-verification/scripts/drift-check.sh .
+        run: bash .gemini/skills/merge-verification/scripts/drift-check.sh .
       - name: Build (workspace, locked)
         run: cargo build --workspace --locked
       - name: Test (workspace, locked)
