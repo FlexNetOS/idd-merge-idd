@@ -13,6 +13,10 @@
     let
       supportedSystems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
       forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
+      # The workspace MSRV floor (measured in slice A4): edition 2024 + `let`-chains
+      # (stabilized 1.88) + time 0.3.47 (>=1.88) + ratatui 0.30 (>=1.86). Keep this
+      # in lockstep with the per-crate `rust-version = "1.88"` and CI's `msrv` job.
+      msrvFloor = "1.88.0";
     in
     {
       devShells = forAllSystems (system:
@@ -21,9 +25,16 @@
             inherit system;
             config.allowUnfree = true;
           };
+          # Hard floor guard: fail `nix develop` evaluation if the pinned nixpkgs
+          # ever provides a rustc below the workspace MSRV, so the dev shell can
+          # never drift below what the crates require. flake.lock pins the exact
+          # nixpkgs revision (reproducibility); this assertion enforces the floor.
+          rustcOk = pkgs.lib.assertMsg
+            (builtins.compareVersions pkgs.rustc.version msrvFloor >= 0)
+            "rusty-idd MSRV floor is ${msrvFloor} but nixpkgs provides rustc ${pkgs.rustc.version}; bump the pinned nixpkgs input.";
         in
         {
-          default = pkgs.mkShell {
+          default = assert rustcOk; pkgs.mkShell {
             # Rust toolchain to build/test/lint the workspace, plus claude-code
             # (the agent CLI that `rusty-idd tui` / `rusty-idd run` drives).
             # NOTE: the Node OpenSpec CLI is no longer an input — the lifecycle
