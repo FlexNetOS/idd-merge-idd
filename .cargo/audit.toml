@@ -4,17 +4,19 @@
 # invocation in the workspace — both the develop CI gate (.github/workflows/ci.yml)
 # and the develop->main promotion gate (.github/workflows/promote-verify.yml).
 #
-# Therefore it lists ONLY advisories we accept repo-wide. It deliberately does NOT
-# list the `time` DoS vulnerability (RUSTSEC-2026-0009): that one is tolerated on
-# the develop gate via an explicit `--ignore` flag in ci.yml (until backlog A2
-# upgrades `time`), but MUST keep blocking the main promotion gate — so it cannot
-# live in this shared file.
+# It lists ONLY advisories accepted repo-wide. The `time` DoS vulnerability
+# (RUSTSEC-2026-0009) is intentionally NOT here — it was remediated by forward
+# upgrade in slice A2 (`time` >=0.3.47) and no longer needs an exception.
 #
-# Each entry below is an accepted-risk, transitive, unmaintained-only advisory
-# pulled in via syntect (tui-markdown / comrak). Tracked by backlog A3, which will
-# upgrade syntect/comrak/tui-markdown forward to drop them and remove these lines.
+# The two entries below are accepted-risk: transitive, UNMAINTAINED-ONLY warnings
+# (not vulnerabilities) with NO forward upgrade path — they come from `syntect`
+# 5.3.0 (the latest published version), which backs the TUI `highlight-code`
+# capability (`tui-markdown`) and `comrak`. Dropping them would remove a shipped
+# capability (a forbidden downgrade). Full rationale + re-evaluation triggers:
+# docs/rusty-idd/security-advisories.md. The fail-closed gate still fails on any
+# NEW advisory and on any vulnerability — only these two warnings are excepted.
 [advisories]
 ignore = [
-    "RUSTSEC-2025-0141", # bincode 1.3.3 unmaintained (via syntect) — backlog A3
-    "RUSTSEC-2024-0320", # yaml-rust 0.4.5 unmaintained (via syntect) — backlog A3
+    "RUSTSEC-2025-0141", # bincode 1.3.3 unmaintained (via syntect; no upgrade path) — accepted-risk A3
+    "RUSTSEC-2024-0320", # yaml-rust 0.4.5 unmaintained (via syntect; no upgrade path) — accepted-risk A3
 ]
