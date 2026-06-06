@@ -25,12 +25,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Session start protocol (mandatory)
 
-1. **Sync first.** `rtk git fetch --all` then confirm the working branch is level with `origin/main` (`rtk git status -sb`). Do not start work on a stale tree.
+**Branching model:** dev work lands on **`develop`** (the integration branch — protected, required check `rust`, auto-merge on). **`main` is the protected release trunk** and takes `develop` only via a promotion PR gated by `rust` **+** the enhanced `promote-verify` workflow (clean-merge + locked build/test + drift + fmt/clippy + `cargo audit`). **Never push or admin-merge `main` directly.** `develop` is the default branch.
+
+1. **Sync first.** `rtk git fetch --all` then confirm the working branch is level with `origin/develop` (`rtk git status -sb`). Do not start work on a stale tree.
 2. **Work in a fresh git worktree, every session.** This repo is the integration root; never mutate it from an ad-hoc checkout. Create an isolated worktree off the synced base before touching code:
    ```bash
-   rtk git worktree add ../idd-<task-slug> -b <task-slug> origin/main
+   rtk git worktree add ../idd-<task-slug> -b <task-slug> origin/develop
    ```
-   Use the `EnterWorktree` tool when available; otherwise the command above. One vertical slice per worktree, per `AGENTS.md` rule 4. Remove the worktree when the slice is merged.
+   Use the `EnterWorktree` tool when available; otherwise the command above. One vertical slice per worktree, per `AGENTS.md` rule 4. Open the slice's PR `--base develop` with auto-merge. Remove the worktree when the slice is merged.
 3. Read `AGENTS.md` (operating rules) and, for `idd`/lifecycle work, `crates/core/README.md` and `docs/rusty-idd/` before changing control-plane behavior.
 
 ## Repository shape
