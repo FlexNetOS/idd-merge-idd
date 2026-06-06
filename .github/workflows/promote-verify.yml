@@ -1,0 +1,56 @@
+name: promote-verify
+# Enhanced verification gate for develop -> main PROMOTION PRs only.
+# main is the protected trunk; dev work lands on `develop` (gated by the lighter `rust`
+# job in ci.yml). A develop->main PR additionally runs THIS workflow, which verifies the
+# tree merges cleanly into main and is fully green + advisory-free before promotion.
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: promote-verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  promote-verify:
+    name: promote-verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify clean merge into main (no conflicts)
+        run: |
+          git config user.email ci@local && git config user.name ci
+          git fetch origin main
+          if ! git merge --no-commit --no-ff origin/main; then
+            echo "::error::promotion PR does not merge cleanly into main"; exit 1
+          fi
+          git merge --abort 2>/dev/null || true
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust-native drift gate
+        run: bash .claude/skills/merge-verification/scripts/drift-check.sh .
+      - name: Build (workspace, locked)
+        run: cargo build --workspace --locked
+      - name: Test (workspace, locked)
+        run: cargo test --workspace --locked
+      - name: Format
+        run: cargo fmt --all -- --check
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+      - name: Security audit (vulnerabilities block promotion)
+        run: |
+          cargo install cargo-audit --locked || true
+          # Vulnerabilities (e.g. the `time` CVE) BLOCK promotion until fixed (backlog A2).
+          # The two known unmaintained advisories (bincode/yaml-rust via syntect) are tracked
+          # by backlog A3 and ignored here so they don't permanently wall promotion.
+          cargo audit \
+            --ignore RUSTSEC-2024-0320 \
+            --ignore RUSTSEC-2025-0141
