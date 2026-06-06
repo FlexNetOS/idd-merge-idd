@@ -2,6 +2,8 @@
 name = "rusty-idd-spec"
 version = "0.1.0"
 edition = "2021"
+# Bound by transitive dep time 0.3.47 (rustc >=1.88) via comrak->syntect. >= core (1.74).
+rust-version = "1.88"
 license = "MIT"
 description = "Rust-native port of the OpenSpec intent-driven lifecycle engine (spec parse / delta-merge / validate / archive)."
 

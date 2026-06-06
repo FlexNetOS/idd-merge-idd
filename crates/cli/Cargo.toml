@@ -2,6 +2,8 @@
 name = "rusty-idd-cli"
 version = "0.1.0"
 edition = "2021"
+# Depends on runner/tui/spec (all >=1.88), so the unified binary inherits 1.88.
+rust-version = "1.88"
 license = "MIT"
 description = "The unified `rusty-idd` CLI: wires the core (idd), spec engine, runner, and TUI behind one clap binary."
 

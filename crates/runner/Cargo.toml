@@ -2,6 +2,8 @@
 name = "rusty-idd-runner"
 version = "0.1.0"
 edition = "2024"
+# edition 2024 needs >=1.85; runner.rs uses `let ... && let ...` chains stabilized in 1.88.
+rust-version = "1.88"
 license = "MIT"
 description = "Task-execution engine and OpenSpec data layer for the rusty-idd TUI and CLI"
 
