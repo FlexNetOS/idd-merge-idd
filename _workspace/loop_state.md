@@ -2,18 +2,18 @@
 session_started: 2026-06-05T00:00:00Z
 loop: idd-merge-loop
 epic: Complete Delivery + Upgrade (upgrade-only / no-downgrade)
-branch: ci-msrv-floor (A4 branch off origin/develop @4a6f8bd, carries A1+A2+A3)
-worktree: ../idd-ci-msrv-floor  (prior merged: #26 #27 #28)
+branch: flake-floor (A5 branch off origin/develop @1ea5e9e, carries A1-A4)
+worktree: ../idd-flake-floor  (prior merged: #26 #27 #28 #29)
 base_branch: develop          # dev work targets develop; main only via gated promotion PR
 promote_target: main          # develop->main on DONE, gated by rust + promote-verify
 pr_policy: ONE PR PER CYCLE (see race note). per-cycle PR --base develop + auto-merge squash (mandatory). develop protected (required check 'rust') => fail-closed. NEVER push/admin-merge main directly.
-open_pr: A1 #26, A2 #27, A3 #28 all MERGED to develop (@4a6f8bd). A4 -> opening now (branch ci-msrv-floor).
+open_pr: A1 #26, A2 #27, A3 #28, A4 #29 all MERGED to develop (@1ea5e9e). A5 -> opening now (branch flake-floor).
 cycle_budget: 3
-cycles_this_session: 1
-cycles_total: 4
-last_item: A4 [x] pin CI toolchain + MSRV floor. Empirically measured floor = 1.88 (NOT guessed 1.85): time@0.3.47⇒1.88, ratatui 0.30⇒1.86, runner let-chains⇒1.88. Declared rust-version core=1.74 / spec,runner,tui,cli=1.88. Pinned rust job @stable→@1.96.0. Added msrv job @1.88.0 (build+test-compile --locked). All gates green; 429 tests. Next: A5 (flake.nix ≥1.88).
-status: CYCLING — A4 done+verified. Opening run PR --base develop w/ auto-merge. Next cycle: A5.
-last_update: 2026-06-06T02:10:00Z
+cycles_this_session: 2
+cycles_total: 5
+last_item: A5 [x] flake.nix MSRV floor enforcement. flake.lock already pinned (rustc 1.93≥floor); added a hard assert (rustc.version >= 1.88) failing `nix develop` eval below floor. Tested fail-closed both ways via nix eval. drift 0, validate 0-crit, suite unchanged (429). Next: A6 (collapse dup transitive versions — last of Epic A).
+status: CYCLING — A4 merged (#29). A5 done+verified. Opening A5 PR --base develop w/ auto-merge. Next cycle: A6 (completes Epic A).
+last_update: 2026-06-06T02:25:00Z
 
 ## ⚠️ Race lesson (auto-merge + fast CI) — POLICY UPDATE
 A1 and A2 were stacked as two commits on ONE branch (PR #26) with auto-merge enabled
