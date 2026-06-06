@@ -11,9 +11,9 @@ open_pr: (none yet)
 cycle_budget: 3
 cycles_this_session: 0
 cycles_total: 0
-last_item: (none — DISCOVER only)
-status: DISCOVER complete — fresh 25-item backlog seeded (Epics A–E); prior epic's stale DONE retired to DONE.prev-epic
-last_update: 2026-06-05T00:00:00Z
+last_item: (none — DISCOVER + setup only; cycling not started)
+status: HANDOFF — setup session complete (audit + backlog + develop/main branching + auto-merge policy). Next session = cycle 1 at A1.
+last_update: 2026-06-06T00:00:00Z
 
 ## Field notes
 - 25 slices across 5 epics. Dependency order: A (supply-chain, audit RED today) → B (robustness) → C (tests) → D (feature/spec completeness) → E (docs/harness). A1/A2 first.
