@@ -4,9 +4,10 @@ name: ci
 # Relocated from intent-driven-development/.github/ (GitHub only runs workflows
 # under the repo-root .github/) and upgraded to run across the whole workspace.
 #
-# All gates are blocking: the Rust-native drift gate, build, test, fmt, and
-# clippy (-D warnings). The fmt+clippy cleanup slice formatted both crates and
-# cleared all lints, so these are now enforced.
+# All gates are blocking: the Rust-native drift gate, build, test, fmt,
+# clippy (-D warnings), and a cargo-audit supply-chain gate. The fmt+clippy
+# cleanup slice formatted both crates and cleared all lints, so these are now
+# enforced. The audit gate fails on any NEW advisory (see .cargo/audit.toml).
 
 on:
   pull_request:
@@ -35,3 +36,16 @@ jobs:
         run: cargo fmt --all -- --check
       - name: Clippy
         run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+      - name: Install cargo-audit
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
+      - name: Security audit (fails on any new advisory)
+        # Fail-closed supply-chain gate. The shared baseline (.cargo/audit.toml) is
+        # auto-loaded and ignores the two accepted unmaintained transitive advisories
+        # (backlog A3). `--deny warnings` turns any *new* unmaintained/unsound/yanked
+        # advisory into a failure too. The `time` DoS vuln (RUSTSEC-2026-0009) is
+        # tolerated here ONLY via this explicit flag until backlog A2 upgrades `time`
+        # forward (>=0.3.47); it is NOT in the shared baseline, so it still blocks the
+        # develop->main promotion gate (promote-verify.yml). Remove the flag when A2 lands.
+        run: cargo audit --deny warnings --ignore RUSTSEC-2026-0009
