@@ -1,5 +1,5 @@
+use rusty_idd_spec::model::{Block, Requirement, Scenario};
 use rusty_idd_spec::{emit_spec, parse_delta, parse_spec, SpecDoc};
-use rusty_idd_spec::model::{Requirement, Scenario, Block};
 
 #[test]
 fn test_parse_spec_empty_string() {
@@ -22,7 +22,8 @@ fn test_parse_spec_unicode() {
 fn test_parse_spec_malformed_prefixes() {
     // Missing space after colon is currently handled by strip_prefix which calls trim() on rest.
     // Wait, strip_prefix(heading, "Requirement:") -> if heading is "Requirement:X", rest is "X".
-    let src = "# Title\n\n## Requirements\n### Requirement:NoSpace\n#### Scenario:NoSpaceScen\nBody\n";
+    let src =
+        "# Title\n\n## Requirements\n### Requirement:NoSpace\n#### Scenario:NoSpaceScen\nBody\n";
     let doc = parse_spec(src);
     assert_eq!(doc.requirements[0].name, "NoSpace");
     assert_eq!(doc.requirements[0].scenarios[0].name, "NoSpaceScen");
@@ -43,8 +44,10 @@ fn test_parse_delta_malformed_sections() {
 
 #[test]
 fn test_emit_spec_minimal() {
-    let mut doc = SpecDoc::default();
-    doc.title = Some("Minimal".to_string());
+    let doc = SpecDoc {
+        title: Some("Minimal".to_string()),
+        ..Default::default()
+    };
     let emitted = emit_spec(&doc);
     // Should have H1, blank line, and ## Requirements header
     assert!(emitted.contains("# Minimal\n\n## Requirements\n"));
@@ -52,12 +55,14 @@ fn test_emit_spec_minimal() {
 
 #[test]
 fn test_emit_spec_unicode_roundtrip() {
-    let mut doc = SpecDoc::default();
-    doc.title = Some("🦀".to_string());
+    let mut doc = SpecDoc {
+        title: Some("🦀".to_string()),
+        ..Default::default()
+    };
     let mut req = Requirement::new("Élan");
     req.scenarios.push(Scenario::new("Déjà vu"));
     doc.requirements.push(req);
-    
+
     let emitted = emit_spec(&doc);
     let parsed = parse_spec(&emitted);
     assert_eq!(parsed.title.unwrap(), "🦀");
@@ -67,11 +72,13 @@ fn test_emit_spec_unicode_roundtrip() {
 
 #[test]
 fn test_emit_spec_blank_line_edges() {
-    let mut doc = SpecDoc::default();
-    doc.title = Some("Title".to_string());
-    doc.purpose = Some(vec![Block::new("Line 1\n\nLine 2")]);
+    let mut doc = SpecDoc {
+        title: Some("Title".to_string()),
+        purpose: Some(vec![Block::new("Line 1\n\nLine 2")]),
+        ..Default::default()
+    };
     doc.requirements.push(Requirement::new("Req"));
-    
+
     let emitted = emit_spec(&doc);
     // Line 1 and Line 2 should be separated by a blank line within the block
     assert!(emitted.contains("Line 1\n\nLine 2\n"));
@@ -81,11 +88,13 @@ fn test_emit_spec_blank_line_edges() {
 
 #[test]
 fn test_emit_spec_multiple_requirements_spacing() {
-    let mut doc = SpecDoc::default();
-    doc.title = Some("Title".to_string());
+    let mut doc = SpecDoc {
+        title: Some("Title".to_string()),
+        ..Default::default()
+    };
     doc.requirements.push(Requirement::new("Req 1"));
     doc.requirements.push(Requirement::new("Req 2"));
-    
+
     let emitted = emit_spec(&doc);
     // There should be a blank line after Req 1 and before Req 2 starts.
     // Spec says: "### Requirement: Req 1\n\n### Requirement: Req 2\n\n"
