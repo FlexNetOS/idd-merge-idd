@@ -23,6 +23,6 @@ jobs:
       - name: Test
         run: cargo test --all --locked
       - name: IDD validation
-        run: cargo run --bin rusty-idd -- validate --workspace .
+        run: cargo run --bin idd -- validate --workspace .
       - name: IDD manifest refresh check
-        run: cargo run --bin rusty-idd -- manifest --workspace . --out .idd/MANIFEST.tsv
+        run: cargo run --bin idd -- manifest --workspace . --out .idd/MANIFEST.tsv

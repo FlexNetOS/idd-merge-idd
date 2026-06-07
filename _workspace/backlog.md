@@ -52,11 +52,11 @@ and the parity mandate above. Status legend: `- [ ]` todo · `- [x]` done+verifi
 - [x] D5 · Confirm full **lifecycle generation** parity (`proposal/specs/design/tasks` content, not just `scaffold`/`new` stubs) against the contract; close any stub-vs-full gap. Gate: generated artifacts match contract shape. — DONE 2026-06-07.
 
 ## Epic E — Docs / harness truth (upgrade-only)
-- [ ] E1 · Fix stale `crates/core/README.md` + `crates/tui/README.md` (still reference retired `idd` / `openspec-tui` bins → `rusty-idd …`).
-- [ ] E2 · Reconcile the **byte-exact parity contradiction** (CLAUDE.md "non-goal" vs slice-sequence "achieved") — single source of truth.
-- [ ] E3 · Record the 3 implicit decisions as **ADRs** (flat CLI, TUI-in-v1, `AI_MERGE/`-only control-plane reconciliation) via `rusty-idd spec adr`.
-- [ ] E4 · **Harden `drift-check.sh`** blind spots (workspace-inherited deps `*.workspace=true`, `[build-dependencies]`, re-exports) so the Rust-native guard can't be fooled.
-- [ ] E5 · Drive `rusty-idd validate` warnings → 0: generate the missing control-plane files (`.idd/MANIFEST.tsv`, `.idd/LOCK.md`, `.github/{pull_request_template.md,copilot-instructions.md,ISSUE_TEMPLATE/idd-task.yml}`, `AI_MERGE/0{3,4,8},10`) **or** record why each is intentionally absent. (Also silence the 2 detector false-positives at env_contract.rs:349 / validation.rs:148.)
+- [x] E1 · Fix stale `crates/core/README.md` + `crates/tui/README.md` (still reference retired `idd` / `openspec-tui` bins → `rusty-idd …`). — DONE 2026-06-07.
+- [x] E2 · Reconcile the **byte-exact parity contradiction** (CLAUDE.md "non-goal" vs slice-sequence "achieved") — single source of truth. — DONE 2026-06-07.
+- [x] E3 · Record the 3 implicit decisions as **ADRs** (flat CLI, TUI-in-v1, `AI_MERGE/`-only control-plane reconciliation) via `rusty-idd spec adr`. — DONE 2026-06-07.
+- [x] E4 · **Harden `drift-check.sh`** blind spots (workspace-inherited deps `*.workspace=true`, `[build-dependencies]`, re-exports) so the Rust-native guard can't be fooled. — DONE 2026-06-07.
+- [x] E5 · Drive `rusty-idd validate` warnings → 0: generate the missing control-plane files (`.idd/MANIFEST.tsv`, `.idd/LOCK.md`, `.github/{pull_request_template.md,copilot-instructions.md,ISSUE_TEMPLATE/idd-task.yml}`, `AI_MERGE/0{3,4,8},10`) **or** record why each is intentionally absent. (Also silence the 2 detector false-positives at env_contract.rs:349 / validation.rs:148.) — DONE 2026-06-07.
 
 ---
 
@@ -64,7 +64,7 @@ and the parity mandate above. Status legend: `- [ ]` todo · `- [x]` done+verifi
 - backlog has no `- [ ]` left · `cargo audit` clean-or-documented · CI runs the audit + MSRV gates ·
 - `rusty-idd validate` no CRITICAL · `drift-check.sh` exit 0 · fmt/clippy clean · `test --workspace --locked` **≥ 429 and only grown** ·
 - byte-exact parity intact · zero capability removed · `docs/rusty-idd/parity-matrix.md` shows full coverage ·
-- `pr-evidence-bundle` produced for each shipped slice · **every run's work shipped via a PR to `main` with auto-merge (no unmerged work stranded locally)**.
+- `pr-evidence-bundle` produced for each shipped slice · **every run's work shipped via a PR to `develop` with auto-merge (no unmerged work stranded locally)**.
 
 ## PR / merge policy (mandatory — see idd-merge-loop principle 9)
 Two-tier flow. Dev work lands on **`develop`**, never `main`. Every run pushes per cycle, opens ONE PR

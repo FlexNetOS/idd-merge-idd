@@ -17,7 +17,7 @@
 - Build:
 - Tests:
 - Lint/typecheck:
-- `rusty-idd validate`:
+- `idd validate`:
 - Secret scan:
 
 ### Rollback path

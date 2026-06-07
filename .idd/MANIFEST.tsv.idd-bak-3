@@ -48,9 +48,8 @@ path	size_bytes	fnv1a64
 .github/workflows/promote-verify.yml	2049	5fdf8c0249e1d91d
 .gitignore	8	60d0c4bbdc512bdf
 .idd/LOCK.md	65	fd4e6132014f2489
-.idd/MANIFEST.tsv	31227	aee3329d5b23b61e
+.idd/MANIFEST.tsv	30589	41f9439c8621e68c
 .idd/MANIFEST.tsv.idd-bak-1	30548	0a7b460c23e3f5c7
-.idd/MANIFEST.tsv.idd-bak-2	30589	41f9439c8621e68c
 .vscode/settings.json	88	f42f9d5e7b87a35c
 AGENTS.md	1522	be3997b89349d73d
 AI_MERGE/03_env_and_secret_contracts.md	242	6d71382f11620049
