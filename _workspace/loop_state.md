@@ -2,18 +2,14 @@
 session_started: 2026-06-05T00:00:00Z
 loop: idd-merge-loop
 epic: Complete Delivery + Upgrade (upgrade-only / no-downgrade)
-branch: dedup-deps (A6 branch off origin/develop @b07f7fb, carries A1-A5)
-worktree: ../idd-dedup-deps  (prior merged: #26 #27 #28 #29 #30)
-base_branch: develop          # dev work targets develop; main only via gated promotion PR
-promote_target: main          # develop->main on DONE, gated by rust + promote-verify
-pr_policy: ONE PR PER CYCLE (see race note). per-cycle PR --base develop + auto-merge squash (mandatory). develop protected (required check 'rust') => fail-closed. NEVER push/admin-merge main directly.
-open_pr: B1 #33 (armed auto-merge squash).
+branch: b1-mutex-poison (merged), next: core-tests-C1
+open_pr: PR #33 (B1/B2 merged), PR #34 (B3 open/merged), PR #35 (B4/C1 pending).
 cycle_budget: 3
-cycles_this_session: 1
-cycles_total: 7
-last_item: B1 [x] lock().unwrap() -> poison-tolerant. Added test_poisoned_mutex_recovery. Refactored 19 flaky runner tests. Verified: 430 tests. PR #33.
-status: RUNNING — B1 complete. Proceeding to B2.
-last_update: 2026-06-06T18:25:00Z
+cycles_this_session: 4
+cycles_total: 12
+last_item: C1 [x] Core fs_utils tests. EPIC B COMPLETE.
+status: RUNNING — Epic B (robustness) complete. C1 complete. Proceeding to C2.
+last_update: 2026-06-07T01:35:00Z
 
 ## ⚠️ Race lesson (auto-merge + fast CI) — POLICY UPDATE
 A1 and A2 were stacked as two commits on ONE branch (PR #26) with auto-merge enabled

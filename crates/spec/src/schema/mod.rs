@@ -100,6 +100,32 @@ mod tests {
     }
 
     #[test]
+    fn load_schema_fails_on_corrupt_yaml() {
+        let yaml = "name: corrupt\nartifacts:\n  - id: foo\n    generates: missing_colon";
+        let result = load_schema(yaml);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        eprintln!("Actual error: {}", err);
+        match err {
+            SchemaError::Parse(_) => (),
+            _ => panic!("Expected Parse error"),
+        }
+    }
+
+    #[test]
+    fn load_schema_fails_on_malformed_yaml() {
+        let yaml = "name: malformed\n  - !invalid_syntax";
+        let result = load_schema(yaml);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        eprintln!("Actual malformed error: {}", err);
+        match err {
+            SchemaError::Parse(_) => (),
+            _ => panic!("Expected Parse error"),
+        }
+    }
+
+    #[test]
     fn artifact_requires_edges() {
         let s = schema();
         assert_eq!(
