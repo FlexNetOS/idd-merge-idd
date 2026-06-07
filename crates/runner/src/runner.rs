@@ -143,10 +143,9 @@ pub fn stop_implementation(state: &ImplState) {
     state.cancel_flag.store(true, Ordering::Relaxed);
     if let Ok(mut handle) = state.child_handle.lock()
         && let Some(ref mut child) = *handle
+        && let Err(e) = child.kill()
     {
-        if let Err(e) = child.kill() {
-            eprintln!("Failed to kill child process {}: {}", child.id(), e);
-        }
+        eprintln!("Failed to kill child process {}: {}", child.id(), e);
     }
 }
 
@@ -294,7 +293,11 @@ fn apply_run(
     config: &TuiConfig,
 ) {
     if let Err(e) = write_run_header(log_path, change_name) {
-        let msg = format!("Failed to write run header to {}: {}", log_path.display(), e);
+        let msg = format!(
+            "Failed to write run header to {}: {}",
+            log_path.display(),
+            e
+        );
         if tx.send(ImplUpdate::Error(msg.clone())).is_err() {
             eprintln!("Intent: {}", msg);
         }
@@ -318,7 +321,11 @@ fn apply_run(
     let stderr_log = match log_file.try_clone() {
         Ok(f) => f,
         Err(e) => {
-            let msg = format!("Failed to clone log file handle for {}: {}", log_path.display(), e);
+            let msg = format!(
+                "Failed to clone log file handle for {}: {}",
+                log_path.display(),
+                e
+            );
             if tx.send(ImplUpdate::Error(msg.clone())).is_err() {
                 eprintln!("Intent: {}", msg);
             }
@@ -398,7 +405,10 @@ fn apply_run(
         return;
     }
 
-    if tx.send(ImplUpdate::Finished { success: exited_ok }).is_err() {
+    if tx
+        .send(ImplUpdate::Finished { success: exited_ok })
+        .is_err()
+    {
         eprintln!("Intent: Finished {{ success: {} }}", exited_ok);
     }
 }
@@ -417,7 +427,11 @@ fn implementation_loop(
 ) {
     // Write run header before starting the task loop
     if let Err(e) = write_run_header(log_path, change_name) {
-        let msg = format!("Failed to write run header to {}: {}", log_path.display(), e);
+        let msg = format!(
+            "Failed to write run header to {}: {}",
+            log_path.display(),
+            e
+        );
         if tx.send(ImplUpdate::Error(msg.clone())).is_err() {
             eprintln!("Intent: {}", msg);
         }
@@ -458,7 +472,11 @@ fn implementation_loop(
         let stderr_log = match log_file.try_clone() {
             Ok(f) => f,
             Err(e) => {
-                let msg = format!("Failed to clone log file handle for {}: {}", log_path.display(), e);
+                let msg = format!(
+                    "Failed to clone log file handle for {}: {}",
+                    log_path.display(),
+                    e
+                );
                 if tx.send(ImplUpdate::Error(msg.clone())).is_err() {
                     eprintln!("Intent: {}", msg);
                 }
@@ -468,12 +486,16 @@ fn implementation_loop(
 
         // Write task header before spawning claude
         let (_, total) = data::parse_task_progress(tasks_path).unwrap_or((0, 0));
-        if let Some((task_num, task_text)) = data::next_unchecked_task(tasks_path) {
-            if let Err(e) = write_task_header(log_path, task_num, total, &task_text) {
-                let msg = format!("Failed to write task header to {}: {}", log_path.display(), e);
-                if tx.send(ImplUpdate::Error(msg.clone())).is_err() {
-                    eprintln!("Intent: {}", msg);
-                }
+        if let Some((task_num, task_text)) = data::next_unchecked_task(tasks_path)
+            && let Err(e) = write_task_header(log_path, task_num, total, &task_text)
+        {
+            let msg = format!(
+                "Failed to write task header to {}: {}",
+                log_path.display(),
+                e
+            );
+            if tx.send(ImplUpdate::Error(msg.clone())).is_err() {
+                eprintln!("Intent: {}", msg);
             }
         }
 
@@ -622,7 +644,8 @@ fn implementation_loop(
                             Ok(child) => {
                                 // Store child handle for cancellation
                                 {
-                                    let mut handle = child_handle.lock().unwrap_or_else(|e| e.into_inner());
+                                    let mut handle =
+                                        child_handle.lock().unwrap_or_else(|e| e.into_inner());
                                     *handle = Some(child);
                                 }
                                 // Poll for completion
@@ -631,7 +654,8 @@ fn implementation_loop(
                                         break false;
                                     }
                                     let try_result = {
-                                        let mut handle = child_handle.lock().unwrap_or_else(|e| e.into_inner());
+                                        let mut handle =
+                                            child_handle.lock().unwrap_or_else(|e| e.into_inner());
                                         if let Some(ref mut c) = *handle {
                                             c.try_wait()
                                         } else {
@@ -646,7 +670,8 @@ fn implementation_loop(
                                             ));
                                         }
                                         Err(e) => {
-                                            let msg = format!("Error waiting for hook process: {}", e);
+                                            let msg =
+                                                format!("Error waiting for hook process: {}", e);
                                             if tx.send(ImplUpdate::Error(msg.clone())).is_err() {
                                                 eprintln!("Intent: {}", msg);
                                             }
@@ -656,7 +681,8 @@ fn implementation_loop(
                                 };
                                 // Clear child handle
                                 {
-                                    let mut handle = child_handle.lock().unwrap_or_else(|e| e.into_inner());
+                                    let mut handle =
+                                        child_handle.lock().unwrap_or_else(|e| e.into_inner());
                                     *handle = None;
                                 }
                                 Ok(exited_ok)
@@ -715,7 +741,13 @@ mod tests {
             PathBuf::from("openspec/changes/test-change/implementation.log")
         );
         assert!(!state.cancel_flag.load(std::sync::atomic::Ordering::Relaxed));
-        assert!(state.child_handle.lock().unwrap_or_else(|e| e.into_inner()).is_none());
+        assert!(
+            state
+                .child_handle
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .is_none()
+        );
 
         // Verify channel works
         tx.send(ImplUpdate::Progress {
@@ -871,8 +903,18 @@ mod tests {
         let handle_clone = child_handle.clone();
 
         // Verify both references see the same state
-        assert!(handle_clone.lock().unwrap_or_else(|e| e.into_inner()).is_none());
-        assert!(child_handle.lock().unwrap_or_else(|e| e.into_inner()).is_none());
+        assert!(
+            handle_clone
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .is_none()
+        );
+        assert!(
+            child_handle
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .is_none()
+        );
     }
 
     #[test]
