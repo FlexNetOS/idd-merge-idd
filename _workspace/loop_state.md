@@ -1,15 +1,15 @@
 # Loop state — idd-merge-loop
-session_started: 2026-06-05T00:00:00Z
+session_started: 2026-06-07T02:00:00Z
 loop: idd-merge-loop
 epic: Complete Delivery + Upgrade (upgrade-only / no-downgrade)
-branch: spec-tests-C3-C4 (PR #35), next: D1
-open_pr: PR #33 (B1/B2 merged), PR #34 (B3 open/merged), PR #35 (C3-C5 open/auto-merging).
+branch: develop (synced after PR #35 merged)
+open_pr: PR #35 merged.
 cycle_budget: 3
-cycles_this_session: 2
-cycles_total: 17
-last_item: D1 [x] Build the parity matrix.
-status: RUNNING — D1 complete. Proceeding to D2. 
-last_update: 2026-06-07T02:30:00Z
+cycles_this_session: 1
+cycles_total: 18
+last_item: D2 [x] spec validate full surface.
+status: RUNNING — D2 complete. Proceeding to D3. 
+last_update: 2026-06-07T02:45:00Z
 
 ## ⚠️ Race lesson (auto-merge + fast CI) — POLICY UPDATE
 A1 and A2 were stacked as two commits on ONE branch (PR #26) with auto-merge enabled
@@ -22,6 +22,5 @@ PR hasn't merged yet, branch the next cycle off that PR's branch (stack) and bas
 on it — never add commits to a PR that already has auto-merge armed and a green-able head.
 
 ## Field notes
-- 25 slices across 5 epics. Dependency order: A (supply-chain, audit RED today) → B (robustness) → C (tests) → D (feature/spec completeness) → E (docs/harness). A1/A2 first.
-- Global invariant baked into backlog header: UPGRADE ONLY, NO DOWNGRADES. Suite baseline 429 (only grows).
-- Not yet running cycles — backlog built and awaiting go-ahead to start the loop.
+- Cycle 1 (this session): Reconciled CI failure in PR #35 (fmt issues) and completed slice D2. PR #35 merged.
+- Next: D3 · Implement the `sync` capability.

@@ -96,6 +96,74 @@ pub fn apply_delta(base: &SpecDoc, delta: &super::Delta) -> Result<SpecDoc, Merg
     Ok(out)
 }
 
+/// Apply a delta to a base spec with "intelligent sync" semantics.
+///
+/// Unlike [`apply_delta`] (which is a programmatic whole-block replacement
+/// faithful to the CLI `archive`), `sync_delta` implements the agent-driven
+/// [`sync`] capability:
+/// - **MODIFIED** requirements merge their scenarios: new scenarios in the
+///   delta are appended to the base; if the delta requirement has a non-empty
+///   body, it replaces the base body.
+/// - **ADDED**, **REMOVED**, and **RENAMED** behave identically to
+///   [`apply_delta`].
+///
+/// This allows an agent to add a single scenario to a requirement by providing
+/// only that scenario in a MODIFIED block, without needing to know or copy
+/// the existing scenarios.
+pub fn sync_delta(base: &SpecDoc, delta: &super::Delta) -> Result<SpecDoc, MergeError> {
+    validate_preconditions(base, delta)?;
+
+    let mut out = base.clone();
+    // 1. Apply RENAMED first (oracle namespace parity).
+    for op in &delta.ops {
+        if let DeltaOp::Renamed { from, to } = op {
+            if let Some(i) = out.position_of(from) {
+                out.requirements[i].name = to.clone();
+            }
+        }
+    }
+
+    // 2. Apply ADDED/MODIFIED/REMOVED.
+    for op in &delta.ops {
+        match op {
+            DeltaOp::Renamed { .. } => {}
+            DeltaOp::Added(req) => out.requirements.push(req.clone()),
+            DeltaOp::Modified(delta_req) => {
+                if let Some(i) = out.position_of(&delta_req.name) {
+                    let base_req = &mut out.requirements[i];
+                    // Sync body if delta has one.
+                    if !delta_req.body.is_empty() {
+                        base_req.body = delta_req.body.clone();
+                    }
+                    // Sync scenarios: append only NEW scenarios (by name).
+                    for delta_sc in &delta_req.scenarios {
+                        let exists = base_req
+                            .scenarios
+                            .iter()
+                            .any(|s| super::normalize_name(&s.name) == super::normalize_name(&delta_sc.name));
+                        if !exists {
+                            base_req.scenarios.push(delta_sc.clone());
+                        } else {
+                            // If it exists, replace it (intelligent update).
+                            if let Some(sc_idx) = base_req.scenarios.iter().position(|s| {
+                                super::normalize_name(&s.name) == super::normalize_name(&delta_sc.name)
+                            }) {
+                                base_req.scenarios[sc_idx] = delta_sc.clone();
+                            }
+                        }
+                    }
+                }
+            }
+            DeltaOp::Removed { name, .. } => {
+                if let Some(i) = out.position_of(name) {
+                    out.requirements.remove(i);
+                }
+            }
+        }
+    }
+    Ok(out)
+}
+
 /// Validate all op preconditions, rename-aware: MODIFIED/REMOVED/ADDED are
 /// checked against the **post-rename** namespace (the oracle applies renames
 /// first). Referencing the old name of a same-delta rename is a distinct error.
@@ -462,5 +530,42 @@ mod tests {
             }
         );
         assert_eq!(b, base());
+    }
+
+    #[test]
+    fn test_sync_delta_intelligent_merge() {
+        use super::super::{Block, Requirement, Scenario};
+
+        let mut b = SpecDoc::default();
+        let mut r1 = Requirement::new("Req 1");
+        r1.body.push(Block::new("Base body"));
+        r1.scenarios.push(Scenario::new("Base Scen"));
+        b.requirements.push(r1);
+
+        // Sync a delta that adds a scenario and changes the body
+        let mut d_req = Requirement::new("Req 1");
+        d_req.body.push(Block::new("New body"));
+        d_req.scenarios.push(Scenario::new("New Scen"));
+        let d = super::super::Delta::new(vec![DeltaOp::Modified(d_req)]);
+
+        let merged = sync_delta(&b, &d).unwrap();
+        assert_eq!(merged.requirements.len(), 1);
+        let m_req = &merged.requirements[0];
+        assert_eq!(m_req.body[0].text, "New body");
+        assert_eq!(m_req.scenarios.len(), 2);
+        assert_eq!(m_req.scenarios[0].name, "Base Scen");
+        assert_eq!(m_req.scenarios[1].name, "New Scen");
+
+        // Sync another delta that updates an existing scenario
+        let mut d_req2 = Requirement::new("Req 1");
+        let mut sc_update = Scenario::new("Base Scen");
+        sc_update.steps.push(Block::new("Updated step"));
+        d_req2.scenarios.push(sc_update);
+        let d2 = super::super::Delta::new(vec![DeltaOp::Modified(d_req2)]);
+
+        let merged2 = sync_delta(&merged, &d2).unwrap();
+        assert_eq!(merged2.requirements[0].scenarios.len(), 2);
+        assert_eq!(merged2.requirements[0].scenarios[0].name, "Base Scen");
+        assert_eq!(merged2.requirements[0].scenarios[0].steps[0].text, "Updated step");
     }
 }

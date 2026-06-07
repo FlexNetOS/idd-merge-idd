@@ -52,6 +52,14 @@ pub enum SpecCommand {
         /// Path to the spec markdown file.
         file: PathBuf,
     },
+    /// Synchronize a delta spec into a base spec with intelligent merge
+    /// (merges scenarios instead of whole-block replacement).
+    Sync {
+        /// The delta spec markdown file (e.g. from a change directory).
+        delta: PathBuf,
+        /// The base spec markdown file to sync into (e.g. in openspec/specs/).
+        base: PathBuf,
+    },
     /// Show a change's artifact-DAG status (which artifacts are done/ready) and
     /// whether it is archivable.
     Status {
@@ -115,6 +123,7 @@ pub fn run(cmd: SpecCommand) -> i32 {
             yes,
         } => crate::commands::spec_archive::run(&change_dir, skip_specs, no_validate, yes),
         SpecCommand::Show { file } => cmd_show(&file),
+        SpecCommand::Sync { delta, base } => cmd_sync(&delta, &base),
         SpecCommand::Status { change_dir } => crate::commands::spec_status::run_status(&change_dir),
         SpecCommand::Next { change_dir } => crate::commands::spec_status::run_next(&change_dir),
         SpecCommand::Adr { command } => crate::commands::spec_adr::run(command),
@@ -361,4 +370,44 @@ fn cmd_show(file: &Path) -> i32 {
         }
     }
     0
+}
+
+fn cmd_sync(delta_path: &Path, base_path: &Path) -> i32 {
+    let delta_src = match std::fs::read_to_string(delta_path) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("rusty-idd: failed to read delta {}: {e}", delta_path.display());
+            return 1;
+        }
+    };
+    let base_src = match std::fs::read_to_string(base_path) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("rusty-idd: failed to read base {}: {e}", base_path.display());
+            return 1;
+        }
+    };
+
+    match rusty_idd_spec::sync_one(&base_src, &delta_src) {
+        Ok((_merged_doc, markdown, counts)) => {
+            if let Err(e) = rusty_idd_core::fs_utils::write_string(base_path, &markdown) {
+                eprintln!("rusty-idd: failed to write {}: {e}", base_path.display());
+                return 1;
+            }
+            println!(
+                "Synced {} into {}: +{} added, ~{} modified, -{} removed, →{} renamed",
+                delta_path.display(),
+                base_path.display(),
+                counts.added,
+                counts.modified,
+                counts.removed,
+                counts.renamed
+            );
+            0
+        }
+        Err(e) => {
+            eprintln!("rusty-idd: sync failed: {e}");
+            1
+        }
+    }
 }
