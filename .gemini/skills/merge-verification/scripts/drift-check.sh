@@ -59,15 +59,16 @@ done
 if [ -z "$core_manifest" ]; then
   echo "WARN: zero-dep core crate not found at known paths — skipping (update drift-check when the core crate is created/moved)."
 else
-  # Body of [dependencies] up to the next [section], minus comments/blank lines.
-  deps=$(awk '/^\[dependencies\]/{f=1;next} /^\[/{f=0} f{print}' "$core_manifest" \
+  # Inspect [dependencies], [build-dependencies], and any target-specific deps.
+  # Dev-dependencies are EXCLUDED (allowed for tests).
+  deps=$(awk '/^\[(build-)?dependencies|^\[target\..*dependencies\]/{f=1;next} /^\[/{f=0} f{print}' "$core_manifest" \
          | grep -v '^[[:space:]]*#' | grep '[^[:space:]]')
   if [ -n "$deps" ]; then
-    echo "DRIFT: core crate $core_manifest declares dependencies (must stay std-only):"
+    echo "DRIFT: core crate $core_manifest declares production dependencies (must stay std-only):"
     echo "$deps" | sed 's/^/  - /'
     fail=1
   else
-    echo "OK: core crate $core_manifest has an empty [dependencies] table (std-only preserved)"
+    echo "OK: core crate $core_manifest has no production dependencies (std-only preserved)"
   fi
 fi
 

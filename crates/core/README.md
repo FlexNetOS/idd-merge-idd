@@ -1,8 +1,8 @@
-# Intent Driven Development (`idd`)
+# rusty-idd-core (formerly `idd`)
 
-`idd` is a Rust-native CLI package for unifying two similar repositories with AI automation while keeping the merge auditable, serialized, and safe around environment/secrets drift.
+`rusty_idd_core` is the zero-dependency Rust-native control plane for unifying repositories with AI automation. It generates the markdown + JSON contracts, CI gates, and agent templates that human and AI contributors execute to integrate code safely.
 
-It does **not** try to become the AI agent. It creates the repo-native control plane that GitHub Copilot cloud agent, OpenHands, Cline, Aider, Claude Code, Codex, local agents, or human contributors can execute through issues, PRs, branches, and CI.
+This crate is now unified into the **`rusty-idd`** CLI.
 
 ## Why this exists
 
@@ -22,47 +22,39 @@ The hard problems are not text generation. They are:
 - keeping a rollback path
 - turning “merge these repos” into small, testable vertical slices
 
-## What changed in v2
-
-- Added GitHub-native execution templates: `.github/copilot-instructions.md`, issue template, PR template, and `SECURITY.md`.
-- Added `AI_MERGE/08_agent_queue.md`, `09_github_execution.md`, `10_parity_test_plan.md`, and `11_provider_matrix.md`.
-- Added JSON sidecars for repository inventories and env/secrets contracts.
-- Added `idd manifest` with `.idd/MANIFEST.tsv` for deterministic artifact tracking.
-- Expanded env/secrets detection for GitHub Actions secrets/vars/env, Node, Vite, Python, Rust, Deno, SOPS, Infisical, Doppler, direnv, mise, Vault/OpenBao, and Compose env files.
-- Added backup-on-overwrite behavior for generated files so reruns preserve previous artifacts.
-- Added validation checks for committed `.env` files, dangerous workflow permission shape, direct secrets in workflow `if:` conditions, and missing agent-control files.
-
 ## Install
 
-From source:
+This is a library used by the `rusty-idd` binary. To install the unified CLI:
 
 ```bash
-cargo install --path .
+cargo install --path crates/cli
 ```
 
-Or run directly:
+Or run directly from the workspace root:
 
 ```bash
-cargo run --bin idd -- help
+cargo run --bin rusty-idd -- <command>
 ```
 
 ## Commands
 
+All core verbs are available via `rusty-idd`:
+
 ```bash
-idd init [path]
-idd scan --repo <path> [--out <file>] [--format md|json]
-idd plan --repo-a <path> --repo-b <path> --out <workspace> [--name <name>]
-idd task --title <title> [--kind <kind>] [--out AI_MERGE/07_tasks]
-idd validate [--workspace <path>] [--report <file>]
-idd manifest [--workspace <path>] [--out .idd/MANIFEST.tsv]
-idd github [--workspace <path>]
+rusty-idd init [path]
+rusty-idd scan --repo <path> [--out <file>] [--format md|json]
+rusty-idd plan --repo-a <path> --repo-b <path> --out <workspace> [--name <name>]
+rusty-idd task --title <title> [--kind <kind>] [--out AI_MERGE/07_tasks]
+rusty-idd validate [--workspace <path>] [--report <file>]
+rusty-idd manifest [--workspace <path>] [--out .idd/MANIFEST.tsv]
+rusty-idd github [--workspace <path>]
 ```
 
 ## Primary workflow
 
 ```bash
 # 1. Create an integration workspace from two repositories
-idd plan \
+rusty-idd plan \
   --repo-a ../env-manager \
   --repo-b ../secrets-manager \
   --out ./integration \
@@ -72,16 +64,16 @@ idd plan \
 ls ./integration/AI_MERGE
 
 # 3. Create a narrow task for an AI agent
-idd task \
+rusty-idd task \
   --out ./integration/AI_MERGE/07_tasks \
   --kind env-secrets \
   --title "Create canonical SecretProvider and EnvResolver interfaces"
 
 # 4. Validate the workspace before PR work
-idd validate --workspace ./integration
+rusty-idd validate --workspace ./integration
 
 # 5. Refresh the audit manifest after intentional control-plane changes
-idd manifest --workspace ./integration
+rusty-idd manifest --workspace ./integration
 ```
 
 ## Generated files

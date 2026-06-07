@@ -62,8 +62,12 @@ const PROPOSAL: &str = "# {{ change }}\n\n\
 <!-- Describe what will change. Be specific about new capabilities, modifications, or removals. -->\n\n\
 ## Capabilities\n\n\
 ### New Capabilities\n\
+<!-- Capabilities being introduced. Replace <name> with kebab-case identifier (e.g., user-auth, data-export, api-rate-limiting). Each creates specs/<name>/spec.md with OpenSpec delta headers and Gherkin-style scenarios. -->\n\
 - `<name>`: <brief description of what this capability covers>\n\n\
 ### Modified Capabilities\n\
+<!-- Existing capabilities whose behaviour is changing (not just implementation).\n\
+     Only list here if spec-level behaviour changes. Each needs a delta spec.md file.\n\
+     Use existing spec names from openspec/specs/. Leave empty if no requirement changes. -->\n\
 - `<existing-name>`: <what behaviour is changing>\n\n\
 ## Impact\n\n\
 <!-- Affected code, APIs, dependencies, systems -->\n";
@@ -72,8 +76,10 @@ const DESIGN: &str = "# {{ change }} — Design\n\n\
 ## Context\n\n\
 <!-- Background and current state -->\n\n\
 ## Goals / Non-Goals\n\n\
-**Goals:**\n\n\
-**Non-Goals:**\n\n\
+**Goals:**\n\
+<!-- What this design aims to achieve -->\n\n\
+**Non-Goals:**\n\
+<!-- What is explicitly out of scope -->\n\n\
 ## Decisions\n\n\
 <!-- Key design decisions and rationale -->\n\n\
 ## Risks / Trade-offs\n\n\
@@ -92,13 +98,17 @@ const TASKS: &str = "# {{ change }} — Tasks\n\n\
 - [ ] 2.2 <!-- Task description -->\n";
 
 const SPEC: &str = "## ADDED Requirements\n\n\
-### Requirement: <!-- feature or business rule name -->\n\n\
+### Requirement: <!-- feature or business rule name -->\n\
+<!-- Optional Gherkin-style context, for example:\n\
+Feature: <capability>\n\
+Rule: <business rule>\n\
+-->\n\n\
 #### Scenario: <!-- scenario name -->\n\
 - **GIVEN** <!-- starting context -->\n\
 - **WHEN** <!-- action or event -->\n\
 - **THEN** <!-- observable outcome -->\n\n\
 ## MODIFIED Requirements\n\n\
-<!-- Copy the full existing requirement block from openspec/specs/<capability>/spec.md, then edit it. -->\n\n\
+<!-- Copy the full existing requirement block from openspec/specs/<capability>/spec.md, then edit it so it represents the full desired behaviour after the change. -->\n\n\
 ## REMOVED Requirements\n\n\
 ### Requirement: <!-- removed feature or business rule name -->\n\
 **Reason**: <!-- why this behaviour is removed -->\n\n\
@@ -107,13 +117,13 @@ const SPEC: &str = "## ADDED Requirements\n\n\
 const ADR: &str = "# {{ number }}. {{ title }}\n\n\
 - Status: proposed | accepted | accepted, supersedes ADR-XXXX\n\
 - Date: {{ date }}\n\
-<!-- Supersedes: ADR-XXXX  (include only if this ADR replaces a prior in-force ADR) -->\n\n\
+<!-- Supersedes: ADR-XXXX  (include this line only if this ADR replaces a prior in-force ADR; omit otherwise) -->\n\n\
 ## Context\n\n\
-<!-- Forces at play, constraints, what's prompting this decision. -->\n\n\
+<!-- Forces at play, constraints, what's prompting this decision. If this ADR supersedes a prior one, explain here why the earlier decision is being revisited; the prior ADR's file is immutable and will not be edited. -->\n\n\
 ## Decision\n\n\
-<!-- The choice being made, stated clearly. -->\n\n\
+<!-- The choice being made, stated clearly and unambiguously. -->\n\n\
 ## Consequences\n\n\
-<!-- Positive, negative, and neutral consequences. -->\n";
+<!-- Positive, negative, and neutral consequences. What becomes easier? What becomes harder? -->\n";
 
 /// The artifact names this scaffolder knows (schema ids; `specs` ⇒ the `spec`
 /// delta template).
