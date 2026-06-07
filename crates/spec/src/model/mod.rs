@@ -14,7 +14,7 @@ mod spec;
 
 pub use block::Block;
 pub use delta::{Delta, DeltaOp};
-pub use merge::{apply_delta, MergeError};
+pub use merge::{apply_delta, sync_delta, MergeError};
 pub use requirement::{Requirement, Scenario};
 pub use spec::SpecDoc;
 
