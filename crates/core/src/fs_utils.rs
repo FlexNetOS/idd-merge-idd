@@ -171,40 +171,47 @@ mod tests {
     fn test_write_string_preserving_existing_backups() {
         let tmp = tempdir().unwrap();
         let target = tmp.path().join("file.txt");
-        
+
         // Initial write
         write_string(&target, "v1").unwrap();
-        
+
         // Same content -> no backup
         write_string_preserving_existing(&target, "v1").unwrap();
         assert!(!tmp.path().join("file.txt.idd-bak-1").exists());
-        
+
         // Different content -> backup created
         write_string_preserving_existing(&target, "v2").unwrap();
-        assert_eq!(fs::read_to_string(tmp.path().join("file.txt.idd-bak-1")).unwrap(), "v1");
+        assert_eq!(
+            fs::read_to_string(tmp.path().join("file.txt.idd-bak-1")).unwrap(),
+            "v1"
+        );
         assert_eq!(fs::read_to_string(&target).unwrap(), "v2");
-        
+
         // Second change -> second backup
         write_string_preserving_existing(&target, "v3").unwrap();
-        assert_eq!(fs::read_to_string(tmp.path().join("file.txt.idd-bak-2")).unwrap(), "v2");
+        assert_eq!(
+            fs::read_to_string(tmp.path().join("file.txt.idd-bak-2")).unwrap(),
+            "v2"
+        );
     }
 
     #[test]
     fn test_stable_walk_is_deterministic() {
         let tmp = tempdir().unwrap();
         let root = tmp.path();
-        
+
         // Create files in non-alphabetical order
         fs::write(root.join("z.txt"), "").unwrap();
         fs::write(root.join("a.txt"), "").unwrap();
         fs::create_dir(root.join("subdir")).unwrap();
         fs::write(root.join("subdir/m.txt"), "").unwrap();
-        
+
         let files = stable_walk(root).unwrap();
-        let relative_names: Vec<String> = files.iter()
+        let relative_names: Vec<String> = files
+            .iter()
             .map(|p| p.strip_prefix(root).unwrap().to_string_lossy().to_string())
             .collect();
-            
+
         // subdir/ comes after a.txt but before z.txt (sorted by PathBuf components)
         // Actually walk_inner sorts at each level.
         assert_eq!(relative_names, vec!["a.txt", "subdir/m.txt", "z.txt"]);

@@ -295,7 +295,11 @@ mod tests {
 
     #[test]
     fn test_parse_flags_basic() {
-        let args = vec!["--repo".to_string(), "path/to/repo".to_string(), "--format=json".to_string()];
+        let args = vec![
+            "--repo".to_string(),
+            "path/to/repo".to_string(),
+            "--format=json".to_string(),
+        ];
         let flags = parse_flags(&args);
         assert_eq!(flags.get("repo").unwrap(), "path/to/repo");
         assert_eq!(flags.get("format").unwrap(), "json");
@@ -330,7 +334,12 @@ mod tests {
     fn test_cmd_task_creates_file() {
         let tmp = tempdir().unwrap();
         let out = tmp.path().to_string_lossy().to_string();
-        let args = vec!["--title".to_string(), "My Task".to_string(), "--out".to_string(), out.clone()];
+        let args = vec![
+            "--title".to_string(),
+            "My Task".to_string(),
+            "--out".to_string(),
+            out.clone(),
+        ];
         cmd_task(&args).unwrap();
         assert!(tmp.path().join("my-task.md").exists());
     }

@@ -648,24 +648,20 @@ mod tests {
         RepoInventory {
             name: name.to_string(),
             root: ".".to_string(),
-            files: vec![
-                FileRecord {
-                    path: "src/main.rs".to_string(),
-                    size_bytes: 100,
-                    extension: Some("rs".to_string()),
-                    category: FileCategory::Source,
-                }
-            ],
+            files: vec![FileRecord {
+                path: "src/main.rs".to_string(),
+                size_bytes: 100,
+                extension: Some("rs".to_string()),
+                category: FileCategory::Source,
+            }],
             languages: [("Rust".to_string(), 1)].into_iter().collect(),
             package_managers: vec!["cargo".to_string()],
             env_keys: vec!["PORT".to_string()],
-            secret_refs: vec![
-                SecretReference {
-                    file: "src/main.rs".to_string(),
-                    key: "API_KEY".to_string(),
-                    source: SecretSource::ProcessEnv,
-                }
-            ],
+            secret_refs: vec![SecretReference {
+                file: "src/main.rs".to_string(),
+                key: "API_KEY".to_string(),
+                source: SecretSource::ProcessEnv,
+            }],
             entrypoints: vec!["src/main.rs".to_string()],
             workflows: vec![],
             agent_files: vec![],
@@ -679,7 +675,7 @@ mod tests {
         let a = mock_inventory("repo-a");
         let b = mock_inventory("repo-b");
         generate_workspace(&a, &b, tmp.path(), "test-unification").unwrap();
-        
+
         assert!(tmp.path().join("AI_MERGE/02_feature_matrix.md").exists());
         assert!(tmp.path().join("AI_MERGE/04_merge_plan.md").exists());
         assert!(tmp.path().join(".idd/MANIFEST.tsv").exists());
@@ -696,7 +692,10 @@ mod tests {
     #[test]
     fn test_slugify() {
         assert_eq!(slugify("My Task Name"), "my-task-name");
-        assert_eq!(slugify("Task/With_Special!Chars"), "task-with-special-chars");
+        assert_eq!(
+            slugify("Task/With_Special!Chars"),
+            "task-with-special-chars"
+        );
     }
 
     #[test]
