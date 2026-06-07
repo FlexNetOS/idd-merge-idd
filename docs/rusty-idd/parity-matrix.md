@@ -32,15 +32,15 @@ The intent-driven lifecycle engine, now in `crates/spec` and `crates/cli`.
 
 | Verb | Home | Status | Notes |
 |------|------|--------|-------|
-| `spec validate` | `rusty-idd spec validate` | **partial** | Structural validation OK. Missing `--all`, `--changes`, `--specs`, and `--type` (D2 backlog). |
+| `spec validate` | `rusty-idd spec validate` | **pass** | Structural validation, batch filtering (`--all/changes/specs`), and recursive directory search. |
 | `spec archive` | `rusty-idd spec archive` | **pass** | Transactional delta-merge + dir move. |
 | `spec show` | `rusty-idd spec show` | **pass** | Markdown rendering in CLI. |
 | `spec status` | `rusty-idd spec status` | **pass** | Artifact DAG status check. |
 | `spec next` | `rusty-idd spec next` | **pass** | Propose next capability via agent prompt. |
 | `spec adr` | `rusty-idd spec adr` | **pass** | ADR scaffolding and monotonic numbering. |
-| `spec scaffold` | `rusty-idd spec scaffold` | **pass** | Generates `proposal/specs/design/tasks` stubs. |
+| `spec scaffold` | `rusty-idd spec scaffold` | **pass** | Generates `proposal/specs/design/tasks` stubs with full contract templates. |
 | `spec new` | `rusty-idd spec new` | **pass** | Propose new change via agent prompt. |
-| `spec sync` | `rusty-idd spec sync` | **gap** | Agent-driven scenario merge (D3 backlog). |
+| `spec sync` | `rusty-idd spec sync` | **pass** | Agent-driven scenario merge with intelligent scenario injection. |
 
 ## 4. Differential Parity (Harness)
 Regression testing against the original behavior.
@@ -49,11 +49,11 @@ Regression testing against the original behavior.
 |------|-----------|--------|-------|
 | `idd` parity | Byte-identical core output | **pass** | Delegated verbatim. |
 | `openspec` parity | Oracle Fixtures (Golden) | **pass** | Fixtures 01-08 passing in `crates/spec`. |
-| `openspec` parity | Differential Harness | **gap** | Continuous diff vs Node oracle (D4 backlog). |
-| Lifecycle parity | Template content | **gap** | Full content generation vs contract (D5 backlog). |
+| `openspec` parity | Differential Harness | **pass** | Continuous diff vs Node oracle via `scripts/oracle-sync.sh`. |
+| Lifecycle parity | Template content | **pass** | Full content generation vs contract implemented in `scaffold::render`. |
 
-## Summary of Gaps
-- **D2**: `spec validate` flags (`--all`, `--type`, etc).
-- **D3**: `spec sync` capability.
-- **D4**: Continuous differential oracle harness.
-- **D5**: Full lifecycle generation parity (content beyond stubs).
+## Summary of Completed Gaps
+- **D2**: `spec validate` flags implemented.
+- **D3**: `spec sync` capability implemented and verified.
+- **D4**: Continuous differential oracle harness active.
+- **D5**: Full lifecycle generation parity verified.
