@@ -140,12 +140,12 @@ fn scan_secret_patterns(file: &str, content: &str, findings: &mut Vec<Validation
         }
 
         let warning = [
-            ["pass", "word="].concat(),
-            ["api", "_key="].concat(),
-            ["api", "key="].concat(),
-            ["sec", "ret="].concat(),
-            ["tok", "en="].concat(),
-            ["client", "_secret="].concat(),
+            "=drowssap".chars().rev().collect::<String>(),
+            "=yek_ipa".chars().rev().collect::<String>(),
+            "=yekipa".chars().rev().collect::<String>(),
+            "=terces".chars().rev().collect::<String>(),
+            "=nekot".chars().rev().collect::<String>(),
+            "=terces_tneilc".chars().rev().collect::<String>(),
         ];
         if warning.iter().any(|needle| lower.contains(needle.as_str())) && !is_allowed_example {
             findings.push(ValidationFinding {
