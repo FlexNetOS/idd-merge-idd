@@ -5,11 +5,11 @@ epic: Complete Delivery + Upgrade (upgrade-only / no-downgrade)
 branch: b1-mutex-poison (merged), next: core-tests-C1
 open_pr: PR #33 (B1/B2 merged), PR #34 (B3 open/merged), PR #35 (B4/C1 pending).
 cycle_budget: 3
-cycles_this_session: 4
-cycles_total: 12
-last_item: C1 [x] Core fs_utils tests. EPIC B COMPLETE.
-status: RUNNING — Epic B (robustness) complete. C1 complete. Proceeding to C2.
-last_update: 2026-06-07T01:35:00Z
+cycles_this_session: 3
+cycles_total: 15
+last_item: C4 [x] spec archive direct tests. 
+status: RUNNING — C3 and C4 complete. Proceeding to C5. 
+last_update: 2026-06-07T02:00:00Z
 
 ## ⚠️ Race lesson (auto-merge + fast CI) — POLICY UPDATE
 A1 and A2 were stacked as two commits on ONE branch (PR #26) with auto-merge enabled
