@@ -168,7 +168,16 @@ pub fn start_implementation(change_name: &str, config: &TuiConfig) -> ImplState 
     let child_handle: Arc<Mutex<Option<Child>>> = Arc::new(Mutex::new(None));
 
     // Read initial progress
-    let (completed, total) = data::parse_task_progress(&tasks_path).unwrap_or((0, 0));
+    let (completed, total) = match data::parse_task_progress(&tasks_path) {
+        Ok(res) => res,
+        Err(e) => {
+            let msg = format!("Failed to read task progress: {}", e);
+            if tx.send(ImplUpdate::Error(msg.clone())).is_err() {
+                eprintln!("Intent: {}", msg);
+            }
+            (0, 0) // Fallback for struct initialization, but thread will handle error
+        }
+    };
 
     let worker_cancel = cancel_flag.clone();
     let worker_child = child_handle.clone();
@@ -439,7 +448,16 @@ fn implementation_loop(
 
     // Stall detection: track consecutive runs without progress
     let mut stall_count: u32 = 0;
-    let mut prev_completed: u32 = data::parse_task_progress(tasks_path).unwrap_or((0, 0)).0;
+    let mut prev_completed: u32 = match data::parse_task_progress(tasks_path) {
+        Ok((c, _)) => c,
+        Err(e) => {
+            let msg = format!("Failed to read task progress: {}", e);
+            if tx.send(ImplUpdate::Error(msg.clone())).is_err() {
+                eprintln!("Intent: {}", msg);
+            }
+            0
+        }
+    };
 
     // Track loop exit reason
     let mut tasks_complete = false;
@@ -452,7 +470,16 @@ fn implementation_loop(
         }
 
         // Check if there are unchecked tasks remaining
-        let (completed, total) = data::parse_task_progress(tasks_path).unwrap_or((0, 0));
+        let (completed, total) = match data::parse_task_progress(tasks_path) {
+            Ok(res) => res,
+            Err(e) => {
+                let msg = format!("Failed to read task progress: {}", e);
+                if tx.send(ImplUpdate::Error(msg.clone())).is_err() {
+                    eprintln!("Intent: {}", msg);
+                }
+                break;
+            }
+        };
         if completed >= total || total == 0 {
             tasks_complete = true;
             break;
@@ -485,7 +512,16 @@ fn implementation_loop(
         };
 
         // Write task header before spawning claude
-        let (_, total) = data::parse_task_progress(tasks_path).unwrap_or((0, 0));
+        let (_, total) = match data::parse_task_progress(tasks_path) {
+            Ok(res) => res,
+            Err(e) => {
+                let msg = format!("Failed to read task progress: {}", e);
+                if tx.send(ImplUpdate::Error(msg.clone())).is_err() {
+                    eprintln!("Intent: {}", msg);
+                }
+                break;
+            }
+        };
         if let Some((task_num, task_text)) = data::next_unchecked_task(tasks_path)
             && let Err(e) = write_task_header(log_path, task_num, total, &task_text)
         {
@@ -585,7 +621,16 @@ fn implementation_loop(
         }
 
         // Re-read progress and check for stall (regardless of exit code)
-        let (completed, total) = data::parse_task_progress(tasks_path).unwrap_or((0, 0));
+        let (completed, total) = match data::parse_task_progress(tasks_path) {
+            Ok(res) => res,
+            Err(e) => {
+                let msg = format!("Failed to read task progress: {}", e);
+                if tx.send(ImplUpdate::Error(msg.clone())).is_err() {
+                    eprintln!("Intent: {}", msg);
+                }
+                break;
+            }
+        };
 
         if completed > prev_completed {
             // Progress was made — reset stall counter

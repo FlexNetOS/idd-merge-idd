@@ -5,7 +5,7 @@ epic: Complete Delivery + Upgrade (upgrade-only / no-downgrade)
 branch: b1-mutex-poison (merged), next: core-tests-C1
 open_pr: PR #33 (B1/B2 merged), PR #34 (B3 open/merged), PR #35 (B4/C1 pending).
 cycle_budget: 3
-cycles_this_session: 3
+cycles_this_session: 0
 cycles_total: 15
 last_item: C4 [x] spec archive direct tests. 
 status: RUNNING — C3 and C4 complete. Proceeding to C5. 

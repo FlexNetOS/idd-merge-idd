@@ -747,18 +747,37 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_task_progress_mixed() {
-        let dir = std::env::temp_dir().join("openspec-tui-test-mixed");
+    fn test_parse_task_progress_crlf() {
+        let dir = std::env::temp_dir().join("openspec-tui-test-crlf");
         fs::create_dir_all(&dir).unwrap();
         let path = dir.join("tasks.md");
         fs::write(
             &path,
-            "## Tasks\n\n- [x] Task one\n- [ ] Task two\n- [x] Task three\n- [ ] Task four\n",
+            "## Tasks\r\n\r\n- [x] Task one\r\n- [ ] Task two\r\n",
         )
         .unwrap();
         let (completed, total) = parse_task_progress(&path).unwrap();
-        assert_eq!(completed, 2);
-        assert_eq!(total, 4);
+        assert_eq!(completed, 1);
+        assert_eq!(total, 2);
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn test_parse_task_progress_non_ascii() {
+        let dir = std::env::temp_dir().join("openspec-tui-test-nonascii");
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("tasks.md");
+        fs::write(
+            &path,
+            "- [x] Étude de marché\n- [ ] Implémentation du système\n",
+        )
+        .unwrap();
+        let (completed, total) = parse_task_progress(&path).unwrap();
+        assert_eq!(completed, 1);
+        assert_eq!(total, 2);
+
+        let next = next_unchecked_task(&path).unwrap();
+        assert_eq!(next.1, "Implémentation du système");
         fs::remove_dir_all(&dir).unwrap();
     }
 
