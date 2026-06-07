@@ -376,14 +376,20 @@ fn cmd_sync(delta_path: &Path, base_path: &Path) -> i32 {
     let delta_src = match std::fs::read_to_string(delta_path) {
         Ok(s) => s,
         Err(e) => {
-            eprintln!("rusty-idd: failed to read delta {}: {e}", delta_path.display());
+            eprintln!(
+                "rusty-idd: failed to read delta {}: {e}",
+                delta_path.display()
+            );
             return 1;
         }
     };
     let base_src = match std::fs::read_to_string(base_path) {
         Ok(s) => s,
         Err(e) => {
-            eprintln!("rusty-idd: failed to read base {}: {e}", base_path.display());
+            eprintln!(
+                "rusty-idd: failed to read base {}: {e}",
+                base_path.display()
+            );
             return 1;
         }
     };

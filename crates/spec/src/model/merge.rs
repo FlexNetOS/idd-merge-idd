@@ -137,16 +137,16 @@ pub fn sync_delta(base: &SpecDoc, delta: &super::Delta) -> Result<SpecDoc, Merge
                     }
                     // Sync scenarios: append only NEW scenarios (by name).
                     for delta_sc in &delta_req.scenarios {
-                        let exists = base_req
-                            .scenarios
-                            .iter()
-                            .any(|s| super::normalize_name(&s.name) == super::normalize_name(&delta_sc.name));
+                        let exists = base_req.scenarios.iter().any(|s| {
+                            super::normalize_name(&s.name) == super::normalize_name(&delta_sc.name)
+                        });
                         if !exists {
                             base_req.scenarios.push(delta_sc.clone());
                         } else {
                             // If it exists, replace it (intelligent update).
                             if let Some(sc_idx) = base_req.scenarios.iter().position(|s| {
-                                super::normalize_name(&s.name) == super::normalize_name(&delta_sc.name)
+                                super::normalize_name(&s.name)
+                                    == super::normalize_name(&delta_sc.name)
                             }) {
                                 base_req.scenarios[sc_idx] = delta_sc.clone();
                             }
@@ -566,6 +566,9 @@ mod tests {
         let merged2 = sync_delta(&merged, &d2).unwrap();
         assert_eq!(merged2.requirements[0].scenarios.len(), 2);
         assert_eq!(merged2.requirements[0].scenarios[0].name, "Base Scen");
-        assert_eq!(merged2.requirements[0].scenarios[0].steps[0].text, "Updated step");
+        assert_eq!(
+            merged2.requirements[0].scenarios[0].steps[0].text,
+            "Updated step"
+        );
     }
 }
