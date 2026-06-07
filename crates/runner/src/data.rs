@@ -120,7 +120,7 @@ pub fn list_archived_changes() -> Result<Vec<ChangeEntry>, String> {
             let name = entry.file_name().to_string_lossy().to_string();
             let tasks_path = path.join("tasks.md");
             let (completed_tasks, total_tasks) = if tasks_path.exists() {
-                parse_task_progress(&tasks_path).unwrap_or((0, 0))
+                parse_task_progress(&tasks_path).unwrap_or_default()
             } else {
                 (0, 0)
             };
@@ -297,49 +297,54 @@ pub struct ChangeConfig {
 
 /// Read the full change config from `change-config.yaml`.
 ///
-/// Returns default config if the file does not exist or cannot be parsed.
-pub fn read_change_config(change_dir: &Path) -> ChangeConfig {
+/// Returns default config if the file does not exist. Returns an error if the
+/// file exists but cannot be read or parsed.
+pub fn read_change_config(change_dir: &Path) -> Result<ChangeConfig, String> {
     let path = change_dir.join("change-config.yaml");
-    let content = match fs::read_to_string(&path) {
-        Ok(c) => c,
-        Err(_) => return ChangeConfig::default(),
-    };
-    serde_norway::from_str(&content).unwrap_or_default()
+    if !path.exists() {
+        return Ok(ChangeConfig::default());
+    }
+    let content = fs::read_to_string(&path)
+        .map_err(|e| format!("Failed to read {}: {}", path.display(), e))?;
+    serde_norway::from_str(&content)
+        .map_err(|e| format!("Failed to parse {}: {}", path.display(), e))
 }
 
 /// Read dependencies for a change from its `change-config.yaml` file.
 ///
-/// Returns an empty list if the file does not exist or cannot be parsed.
-pub fn read_dependencies(change_dir: &Path) -> Vec<String> {
-    read_change_config(change_dir).depends_on
+/// Returns an empty list if the file does not exist. Returns an error if the
+/// file exists but is corrupt.
+pub fn read_dependencies(change_dir: &Path) -> Result<Vec<String>, String> {
+    read_change_config(change_dir).map(|c| c.depends_on)
 }
 
 /// Read the run mode for a change from its `change-config.yaml` file.
 ///
-/// Returns `RunMode::Normal` if the file does not exist or cannot be parsed.
-pub fn read_run_mode(change_dir: &Path) -> RunMode {
-    read_change_config(change_dir).run_mode
+/// Returns `RunMode::Normal` if the file does not exist. Returns an error if the
+/// file exists but is corrupt.
+pub fn read_run_mode(change_dir: &Path) -> Result<RunMode, String> {
+    read_change_config(change_dir).map(|c| c.run_mode)
 }
 
 /// Load dependencies for all given changes.
 ///
 /// Returns a map from change name to its dependency list. Changes with no
-/// dependencies are omitted from the map.
-pub fn load_change_dependencies(changes: &[ChangeEntry]) -> HashMap<String, Vec<String>> {
-    let cwd = std::env::current_dir().unwrap_or_default();
+/// dependencies are omitted from the map. Returns an error if CWD or any
+/// existing config file cannot be read.
+pub fn load_change_dependencies(
+    changes: &[ChangeEntry],
+) -> Result<HashMap<String, Vec<String>>, String> {
+    let cwd = std::env::current_dir().map_err(|e| format!("Failed to get cwd: {e}"))?;
     let changes_dir = cwd.join("openspec").join("changes");
-    changes
-        .iter()
-        .filter_map(|c| {
-            let dir = changes_dir.join(&c.name);
-            let deps = read_dependencies(&dir);
-            if deps.is_empty() {
-                None
-            } else {
-                Some((c.name.clone(), deps))
-            }
-        })
-        .collect()
+    let mut map = HashMap::new();
+    for c in changes {
+        let dir = changes_dir.join(&c.name);
+        let deps = read_dependencies(&dir)?;
+        if !deps.is_empty() {
+            map.insert(c.name.clone(), deps);
+        }
+    }
+    Ok(map)
 }
 
 /// Write the full change config to `change-config.yaml`.
@@ -356,7 +361,7 @@ pub fn write_change_config(change_dir: &Path, config: &ChangeConfig) -> Result<(
 ///
 /// Reads existing config first to preserve other fields (like run_mode).
 pub fn write_dependencies(change_dir: &Path, dependencies: &[String]) -> Result<(), String> {
-    let mut config = read_change_config(change_dir);
+    let mut config = read_change_config(change_dir)?;
     config.depends_on = dependencies.to_vec();
     write_change_config(change_dir, &config)
 }
@@ -885,7 +890,9 @@ mod tests {
         // Change to the temp base dir so list_archived_changes() finds the archive.
         // Hold the CWD guard for the whole critical section (until restore + cleanup).
         let _cwd = CWD_GUARD.lock().unwrap_or_else(|e| e.into_inner());
-        let original_dir = std::env::current_dir().unwrap();
+        let original_dir = std::env::current_dir()
+            .map_err(|e| format!("Failed to get current dir: {}", e))
+            .unwrap();
         std::env::set_current_dir(&base).unwrap();
         f(&base);
         std::env::set_current_dir(&original_dir).unwrap();
@@ -930,7 +937,9 @@ mod tests {
         // No openspec/changes/archive/ directory
 
         let _cwd = CWD_GUARD.lock().unwrap_or_else(|e| e.into_inner());
-        let original_dir = std::env::current_dir().unwrap();
+        let original_dir = std::env::current_dir()
+            .map_err(|e| format!("Failed to get current dir: {}", e))
+            .unwrap();
         std::env::set_current_dir(&base).unwrap();
         let result = list_archived_changes().unwrap();
         assert!(result.is_empty());
@@ -1046,7 +1055,7 @@ mod tests {
         )
         .unwrap();
 
-        let deps = read_dependencies(&dir);
+        let deps = read_dependencies(&dir).unwrap();
         assert_eq!(deps, vec!["add-api", "add-user-model"]);
         fs::remove_dir_all(&dir).unwrap();
     }
@@ -1057,7 +1066,7 @@ mod tests {
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
 
-        let deps = read_dependencies(&dir);
+        let deps = read_dependencies(&dir).unwrap();
         assert!(deps.is_empty());
         fs::remove_dir_all(&dir).unwrap();
     }
@@ -1069,7 +1078,7 @@ mod tests {
         fs::create_dir_all(&dir).unwrap();
         fs::write(dir.join("change-config.yaml"), "depends_on: []\n").unwrap();
 
-        let deps = read_dependencies(&dir);
+        let deps = read_dependencies(&dir).unwrap();
         assert!(deps.is_empty());
         fs::remove_dir_all(&dir).unwrap();
     }
@@ -1083,7 +1092,7 @@ mod tests {
         let deps = vec!["add-api".to_string(), "add-auth".to_string()];
         write_dependencies(&dir, &deps).unwrap();
 
-        let read_back = read_dependencies(&dir);
+        let read_back = read_dependencies(&dir).unwrap();
         assert_eq!(read_back, vec!["add-api", "add-auth"]);
         fs::remove_dir_all(&dir).unwrap();
     }
@@ -1098,7 +1107,7 @@ mod tests {
         let deps = vec!["new-dep".to_string()];
         write_dependencies(&dir, &deps).unwrap();
 
-        let read_back = read_dependencies(&dir);
+        let read_back = read_dependencies(&dir).unwrap();
         assert_eq!(read_back, vec!["new-dep"]);
         fs::remove_dir_all(&dir).unwrap();
     }
@@ -1111,7 +1120,7 @@ mod tests {
 
         write_dependencies(&dir, &[]).unwrap();
 
-        let read_back = read_dependencies(&dir);
+        let read_back = read_dependencies(&dir).unwrap();
         assert!(read_back.is_empty());
         fs::remove_dir_all(&dir).unwrap();
     }
@@ -1125,11 +1134,11 @@ mod tests {
         // Start with one dep
         write_dependencies(&dir, &["dep-a".to_string()]).unwrap();
         // Read, add, write back
-        let mut deps = read_dependencies(&dir);
+        let mut deps = read_dependencies(&dir).unwrap();
         deps.push("dep-b".to_string());
         write_dependencies(&dir, &deps).unwrap();
 
-        let final_deps = read_dependencies(&dir);
+        let final_deps = read_dependencies(&dir).unwrap();
         assert_eq!(final_deps, vec!["dep-a", "dep-b"]);
         fs::remove_dir_all(&dir).unwrap();
     }
@@ -1142,11 +1151,11 @@ mod tests {
 
         write_dependencies(&dir, &["dep-a".to_string(), "dep-b".to_string()]).unwrap();
         // Read, remove, write back
-        let mut deps = read_dependencies(&dir);
+        let mut deps = read_dependencies(&dir).unwrap();
         deps.retain(|d| d != "dep-a");
         write_dependencies(&dir, &deps).unwrap();
 
-        let final_deps = read_dependencies(&dir);
+        let final_deps = read_dependencies(&dir).unwrap();
         assert_eq!(final_deps, vec!["dep-b"]);
         fs::remove_dir_all(&dir).unwrap();
     }
@@ -1440,10 +1449,10 @@ mod tests {
 
         // Use the function directly with the right cwd
         // Since load_change_dependencies uses current_dir, we test read_dependencies directly
-        let deps_a = read_dependencies(&change_a);
+        let deps_a = read_dependencies(&change_a).unwrap();
         assert_eq!(deps_a, vec!["change-b".to_string()]);
 
-        let deps_b = read_dependencies(&change_b);
+        let deps_b = read_dependencies(&change_b).unwrap();
         assert!(deps_b.is_empty());
 
         let _ = fs::remove_dir_all(&base);
@@ -1583,7 +1592,7 @@ mod tests {
         )
         .unwrap();
 
-        let config = read_change_config(&dir);
+        let config = read_change_config(&dir).unwrap();
         assert_eq!(config.depends_on, vec!["dep-a"]);
         assert_eq!(config.run_mode, RunMode::Apply);
         fs::remove_dir_all(&dir).unwrap();
@@ -1595,7 +1604,7 @@ mod tests {
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
 
-        let mode = read_run_mode(&dir);
+        let mode = read_run_mode(&dir).unwrap();
         assert_eq!(mode, RunMode::Normal);
         fs::remove_dir_all(&dir).unwrap();
     }
@@ -1607,7 +1616,7 @@ mod tests {
         fs::create_dir_all(&dir).unwrap();
         fs::write(dir.join("change-config.yaml"), "run_mode: apply\n").unwrap();
 
-        let mode = read_run_mode(&dir);
+        let mode = read_run_mode(&dir).unwrap();
         assert_eq!(mode, RunMode::Apply);
         fs::remove_dir_all(&dir).unwrap();
     }
@@ -1624,9 +1633,23 @@ mod tests {
         };
         write_change_config(&dir, &config).unwrap();
 
-        let read_back = read_change_config(&dir);
+        let read_back = read_change_config(&dir).unwrap();
         assert_eq!(read_back.depends_on, vec!["dep-a"]);
         assert_eq!(read_back.run_mode, RunMode::Apply);
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn test_read_change_config_corrupt_file_returns_error() {
+        let dir = std::env::temp_dir().join("openspec-tui-test-config-corrupt");
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        // Invalid YAML (missing colon)
+        fs::write(dir.join("change-config.yaml"), "depends_on\n  - some-dep\n").unwrap();
+
+        let result = read_change_config(&dir);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Failed to parse"));
         fs::remove_dir_all(&dir).unwrap();
     }
 
@@ -1647,7 +1670,7 @@ mod tests {
         write_dependencies(&dir, &["dep-b".to_string()]).unwrap();
 
         // run_mode should be preserved
-        let read_back = read_change_config(&dir);
+        let read_back = read_change_config(&dir).unwrap();
         assert_eq!(read_back.depends_on, vec!["dep-b"]);
         assert_eq!(read_back.run_mode, RunMode::Apply);
         fs::remove_dir_all(&dir).unwrap();
