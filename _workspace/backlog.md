@@ -42,7 +42,7 @@ and the parity mandate above. Status legend: `- [ ]` todo · `- [x]` done+verifi
 - [x] C2 · `crates/core/src/cli.rs` dispatcher + `planner.rs` (13 untested fns) — tests for each verb incl. missing-flag/I-O-error paths. — DONE 2026-06-07: Added 10 tests covering flag parsing, workspace generation, and inventory serialization. PR #34.
 - [x] C3 · `crates/spec` parse/emit — **direct** unit tests for `parse_spec`/`parse_delta`/`emit_spec` (malformed markdown, blank-line edges, Unicode); today only ~3 golden fixtures exercise ~450 LOC. — DONE 2026-06-07: Added direct unit tests for parse_spec, parse_delta, and emit_spec covering Unicode, malformed prefixes, and blank-line edges.
 - [x] C4 · `spec archive` — tests for **multi-capability**, partial-failure abort, and permission-denied (transactional rollback). — DONE 2026-06-07: Added direct unit tests for archive_specs transactional orchestration including abort-on-failure.
-- [ ] C5 · `runner`/`data` error paths — `openspec` not on PATH, invalid UTF-8 stdout, CRLF `tasks.md`, non-ASCII names.
+- [x] C5 · `runner`/`data` error paths — `openspec` not on PATH, invalid UTF-8 stdout, CRLF `tasks.md`, non-ASCII names. — DONE 2026-06-07: Hardened error surfacing in runner.rs and data.rs; added tests for CRLF and non-ASCII. Verified 462 tests. PR #35.
 
 ## Epic D — Feature + capability + spec COMPLETENESS (the parity mandate; upgrade-only)
 - [ ] D1 · **Build the parity matrix** — enumerate every feature/capability/spec of the three source projects and map each to its rusty-idd home; list each gap as a concrete follow-on slice. Output: `docs/rusty-idd/parity-matrix.md`. (This slice may spawn D6+.)
