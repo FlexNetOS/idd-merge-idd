@@ -49,7 +49,7 @@ and the parity mandate above. Status legend: `- [ ]` todo · `- [x]` done+verifi
 - [x] D2 · `spec validate` **full surface** — add `--all | --changes | --specs` and `--type change|spec`, and accept a change-dir/name (today a strict subset of the oracle). Additive; single-file path unchanged. Gate: oracle-parity tests for the new modes. — DONE 2026-06-07.
 - [x] D3 · Implement the **`sync` capability** (agent-driven scenario merge; `opsx-sync`, distinct from programmatic `archive` per lifecycle-contract §) — the documented lifecycle verb not yet delivered. Gate: oracle-conformance fixture for `sync`. — DONE 2026-06-07.
 - [x] D4 · **Re-establish the differential oracle harness** (the Node oracle binary was deleted) so parity is regression-tested, not asserted once. Pin the OpenSpec oracle version. Gate: harness runs both engines on generated (base,delta) pairs and diffs. — DONE 2026-06-07.
-- [ ] D5 · Confirm full **lifecycle generation** parity (`proposal/specs/design/tasks` content, not just `scaffold`/`new` stubs) against the contract; close any stub-vs-full gap. Gate: generated artifacts match contract shape.
+- [x] D5 · Confirm full **lifecycle generation** parity (`proposal/specs/design/tasks` content, not just `scaffold`/`new` stubs) against the contract; close any stub-vs-full gap. Gate: generated artifacts match contract shape. — DONE 2026-06-07.
 
 ## Epic E — Docs / harness truth (upgrade-only)
 - [ ] E1 · Fix stale `crates/core/README.md` + `crates/tui/README.md` (still reference retired `idd` / `openspec-tui` bins → `rusty-idd …`).
