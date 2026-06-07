@@ -2,14 +2,14 @@
 session_started: 2026-06-05T00:00:00Z
 loop: idd-merge-loop
 epic: Complete Delivery + Upgrade (upgrade-only / no-downgrade)
-branch: b1-mutex-poison (merged), next: core-tests-C1
-open_pr: PR #33 (B1/B2 merged), PR #34 (B3 open/merged), PR #35 (B4/C1 pending).
+branch: spec-tests-C3-C4 (PR #35), next: D1
+open_pr: PR #33 (B1/B2 merged), PR #34 (B3 open/merged), PR #35 (C3-C5 open/auto-merging).
 cycle_budget: 3
-cycles_this_session: 4
-cycles_total: 12
-last_item: C1 [x] Core fs_utils tests. EPIC B COMPLETE.
-status: RUNNING — Epic B (robustness) complete. C1 complete. Proceeding to C2.
-last_update: 2026-06-07T01:35:00Z
+cycles_this_session: 2
+cycles_total: 17
+last_item: D1 [x] Build the parity matrix.
+status: RUNNING — D1 complete. Proceeding to D2. 
+last_update: 2026-06-07T02:30:00Z
 
 ## ⚠️ Race lesson (auto-merge + fast CI) — POLICY UPDATE
 A1 and A2 were stacked as two commits on ONE branch (PR #26) with auto-merge enabled

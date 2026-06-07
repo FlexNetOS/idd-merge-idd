@@ -12,13 +12,25 @@ pub enum SpecCommand {
     /// Structurally validate a spec file; exit nonzero if invalid.
     Validate {
         /// Path to the spec markdown file.
-        file: PathBuf,
+        file: Option<PathBuf>,
         /// Emit the JSON report (oracle shape) instead of a human summary.
         #[arg(long)]
         json: bool,
         /// Treat WARNINGs as failures too.
         #[arg(long)]
         strict: bool,
+        /// Validate all specs and changes.
+        #[arg(long, conflicts_with = "file")]
+        all: bool,
+        /// Validate all changes in openspec/changes/.
+        #[arg(long, conflicts_with = "file")]
+        changes: bool,
+        /// Validate all base specs in openspec/specs/.
+        #[arg(long, conflicts_with = "file")]
+        specs: bool,
+        /// Explicitly specify the item type (spec|change).
+        #[arg(long, value_parser = ["spec", "change"])]
+        item_type: Option<String>,
     },
     /// Archive a completed change: merge its delta specs into the base specs
     /// transactionally, then move the change dir under `archive/`.
@@ -87,7 +99,15 @@ pub enum SpecCommand {
 /// Dispatch a `spec` subcommand, returning a process exit code.
 pub fn run(cmd: SpecCommand) -> i32 {
     match cmd {
-        SpecCommand::Validate { file, json, strict } => cmd_validate(&file, json, strict),
+        SpecCommand::Validate {
+            file,
+            json,
+            strict,
+            all,
+            changes,
+            specs,
+            item_type,
+        } => cmd_validate(&file, json, strict, all, changes, specs, &item_type),
         SpecCommand::Archive {
             change_dir,
             skip_specs,
@@ -126,22 +146,100 @@ pub fn capability_id(path: &Path) -> String {
         .unwrap_or_else(|| path.to_string_lossy().into_owned())
 }
 
-fn cmd_validate(file: &Path, json: bool, strict: bool) -> i32 {
-    let src = match std::fs::read_to_string(file) {
-        Ok(s) => s,
-        Err(e) => {
-            eprintln!("rusty-idd: failed to read {}: {e}", file.display());
+fn cmd_validate(
+    file: &Option<PathBuf>,
+    json: bool,
+    strict: bool,
+    all: bool,
+    changes: bool,
+    specs: bool,
+    item_type: &Option<String>,
+) -> i32 {
+    let mut files_to_validate = Vec::new();
+
+    if let Some(f) = file {
+        files_to_validate.push((
+            f.clone(),
+            item_type.clone().unwrap_or_else(|| "spec".to_string()),
+        ));
+    } else {
+        // Batch mode
+        let openspec_dir = Path::new("openspec");
+        if !openspec_dir.is_dir() {
+            eprintln!("rusty-idd: openspec directory not found in current directory.");
             return 1;
         }
+
+        if all || specs {
+            let specs_dir = openspec_dir.join("specs");
+            if specs_dir.is_dir() {
+                if let Ok(files) = rusty_idd_core::fs_utils::stable_walk(&specs_dir) {
+                    for f in files {
+                        if f.extension().map(|e| e == "md").unwrap_or(false) {
+                            files_to_validate.push((f, "spec".to_string()));
+                        }
+                    }
+                }
+            }
+        }
+
+        if all || changes {
+            let changes_dir = openspec_dir.join("changes");
+            if changes_dir.is_dir() {
+                if let Ok(files) = rusty_idd_core::fs_utils::stable_walk(&changes_dir) {
+                    for f in files {
+                        // Skip the archive directory
+                        if f.components().any(|c| c.as_os_str() == "archive") {
+                            continue;
+                        }
+                        if f.extension().map(|e| e == "md").unwrap_or(false) {
+                            files_to_validate.push((f, "change".to_string()));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if files_to_validate.is_empty() {
+        eprintln!("rusty-idd: no spec files found to validate.");
+        return 1;
+    }
+
+    let mut combined_report = Report {
+        items: Vec::new(),
+        summary: rusty_idd_spec::validate::Summary {
+            totals: rusty_idd_spec::validate::Counts {
+                items: 0,
+                passed: 0,
+                failed: 0,
+            },
+            by_type: std::collections::BTreeMap::new(),
+        },
+        version: "1.0".to_string(),
     };
-    let id = capability_id(file);
-    let report = validate_spec(&id, &src);
+
+    for (path, default_type) in files_to_validate {
+        let src = match std::fs::read_to_string(&path) {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("rusty-idd: failed to read {}: {e}", path.display());
+                continue;
+            }
+        };
+        let id = capability_id(&path);
+        let report = validate_spec(&id, &src);
+
+        for mut item in report.items {
+            item.item_type = item_type.clone().unwrap_or(default_type.clone());
+            combined_report.items.push(item);
+        }
+    }
+
+    update_summary(&mut combined_report);
 
     if json {
-        // The JSON payload mirrors the oracle shape exactly and is strict-blind
-        // (the oracle's `valid`/`totals` count ERRORs only). `--strict` affects
-        // only the human summary and the process exit code, never this payload.
-        match serde_json::to_string_pretty(&report) {
+        match serde_json::to_string_pretty(&combined_report) {
             Ok(s) => println!("{s}"),
             Err(e) => {
                 eprintln!("rusty-idd: failed to serialize report: {e}");
@@ -149,14 +247,49 @@ fn cmd_validate(file: &Path, json: bool, strict: bool) -> i32 {
             }
         }
     } else {
-        print_human_report(&report, strict);
+        print_human_report(&combined_report, strict);
     }
 
-    if report_failed(&report, strict) {
+    if report_failed(&combined_report, strict) {
         1
     } else {
         0
     }
+}
+
+fn update_summary(report: &mut Report) {
+    let mut totals = rusty_idd_spec::validate::Counts {
+        items: 0,
+        passed: 0,
+        failed: 0,
+    };
+    let mut by_type = std::collections::BTreeMap::new();
+
+    for item in &report.items {
+        totals.items += 1;
+        if item.valid {
+            totals.passed += 1;
+        } else {
+            totals.failed += 1;
+        }
+
+        let type_counts =
+            by_type
+                .entry(item.item_type.clone())
+                .or_insert(rusty_idd_spec::validate::Counts {
+                    items: 0,
+                    passed: 0,
+                    failed: 0,
+                });
+        type_counts.items += 1;
+        if item.valid {
+            type_counts.passed += 1;
+        } else {
+            type_counts.failed += 1;
+        }
+    }
+
+    report.summary = rusty_idd_spec::validate::Summary { totals, by_type };
 }
 
 /// Whether a single item fails: any ERROR, or (under `--strict`) any WARNING.
