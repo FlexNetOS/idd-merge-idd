@@ -637,3 +637,72 @@ fn json_escape(value: &str) -> String {
     }
     out
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::model::{FileCategory, FileRecord, SecretReference, SecretSource};
+    use tempfile::tempdir;
+
+    fn mock_inventory(name: &str) -> RepoInventory {
+        RepoInventory {
+            name: name.to_string(),
+            root: ".".to_string(),
+            files: vec![
+                FileRecord {
+                    path: "src/main.rs".to_string(),
+                    size_bytes: 100,
+                    extension: Some("rs".to_string()),
+                    category: FileCategory::Source,
+                }
+            ],
+            languages: [("Rust".to_string(), 1)].into_iter().collect(),
+            package_managers: vec!["cargo".to_string()],
+            env_keys: vec!["PORT".to_string()],
+            secret_refs: vec![
+                SecretReference {
+                    file: "src/main.rs".to_string(),
+                    key: "API_KEY".to_string(),
+                    source: SecretSource::ProcessEnv,
+                }
+            ],
+            entrypoints: vec!["src/main.rs".to_string()],
+            workflows: vec![],
+            agent_files: vec![],
+            security_files: vec![],
+        }
+    }
+
+    #[test]
+    fn test_generate_workspace_creates_files() {
+        let tmp = tempdir().unwrap();
+        let a = mock_inventory("repo-a");
+        let b = mock_inventory("repo-b");
+        generate_workspace(&a, &b, tmp.path(), "test-unification").unwrap();
+        
+        assert!(tmp.path().join("AI_MERGE/02_feature_matrix.md").exists());
+        assert!(tmp.path().join("AI_MERGE/04_merge_plan.md").exists());
+        assert!(tmp.path().join(".idd/MANIFEST.tsv").exists());
+    }
+
+    #[test]
+    fn test_inventory_json_validity() {
+        let inv = mock_inventory("test-repo");
+        let json = inventory_json(&inv);
+        assert!(json.contains("\"name\": \"test-repo\""));
+        assert!(json.contains("\"PORT\""));
+    }
+
+    #[test]
+    fn test_slugify() {
+        assert_eq!(slugify("My Task Name"), "my-task-name");
+        assert_eq!(slugify("Task/With_Special!Chars"), "task-with-special-chars");
+    }
+
+    #[test]
+    fn test_looks_secretish() {
+        assert!(looks_secretish("DATABASE_URL_PASSWORD"));
+        assert!(looks_secretish("AWS_ACCESS_KEY"));
+        assert!(!looks_secretish("APP_PORT"));
+    }
+}
