@@ -4,5 +4,5 @@
 mod report;
 mod rules;
 
-pub use report::{Issue, IssueLevel, Item, Report, Summary};
+pub use report::{Counts, Issue, IssueLevel, Item, Report, Summary};
 pub use rules::{validate_spec, validate_spec_item};

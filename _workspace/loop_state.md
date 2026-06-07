@@ -5,11 +5,11 @@ epic: Complete Delivery + Upgrade (upgrade-only / no-downgrade)
 branch: spec-tests-C3-C4 (PR #35), next: D1
 open_pr: PR #33 (B1/B2 merged), PR #34 (B3 open/merged), PR #35 (C3-C5 open/auto-merging).
 cycle_budget: 3
-cycles_this_session: 1
-cycles_total: 16
-last_item: C5 [x] runner/data error paths.
-status: RUNNING — C5 complete. Proceeding to D1. 
-last_update: 2026-06-07T02:15:00Z
+cycles_this_session: 2
+cycles_total: 17
+last_item: D1 [x] Build the parity matrix.
+status: RUNNING — D1 complete. Proceeding to D2. 
+last_update: 2026-06-07T02:30:00Z
 
 ## ⚠️ Race lesson (auto-merge + fast CI) — POLICY UPDATE
 A1 and A2 were stacked as two commits on ONE branch (PR #26) with auto-merge enabled
