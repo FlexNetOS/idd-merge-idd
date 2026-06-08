@@ -1,13 +1,15 @@
 [package]
-name = "rusty-idd-core"
-version = "0.2.0"
-edition = "2021"
-rust-version = "1.74"
-description = "Rust-native CLI for intent-driven repository unification, GitHub agent orchestration, env/secrets contract mapping, manifesting, and gated task generation."
-license = "MIT"
-readme = "README.md"
-keywords = ["ai", "github", "merge", "automation", "rust"]
-categories = ["command-line-utilities", "development-tools"]
+name        = "rusty-idd-core"
+version.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+license.workspace = true
+edition.workspace = true
+readme      = "README.md"
+keywords    = ["ai", "github", "merge", "automation", "rust"]
+categories  = ["command-line-utilities", "development-tools"]
 
 # Library only. The standalone `idd` binary was retired in slice 8 — its CLI is
 # now `rusty-idd <verb>` (crates/cli delegates to `cli::run` here, byte-identical).
@@ -16,3 +18,6 @@ name = "rusty_idd_core"
 path = "src/lib.rs"
 
 [dependencies]
+
+[dev-dependencies]
+tempfile = "3"

@@ -6,7 +6,7 @@
 //! owns I/O); this module computes the merged outputs and op counts purely from
 //! in-memory `(base, delta)` pairs so it is unit-testable.
 
-use crate::model::{apply_delta, Delta, DeltaOp, MergeError, SpecDoc};
+use crate::model::{apply_delta, sync_delta, Delta, DeltaOp, MergeError, SpecDoc};
 use crate::parse::{emit_spec, parse_delta, parse_spec};
 
 /// Per-spec op counts (`+added / ~modified / -removed / →renamed`), mirroring
@@ -68,6 +68,18 @@ pub fn merge_one(
     let base = parse_spec(base_src);
     let delta = parse_delta(delta_src);
     let merged = apply_delta(&base, &delta)?;
+    let markdown = emit_spec(&merged);
+    Ok((merged, markdown, OpCounts::of(&delta)))
+}
+
+/// Orchestrate one sync (intelligent merge): parse → sync_delta → emit.
+pub fn sync_one(
+    base_src: &str,
+    delta_src: &str,
+) -> Result<(SpecDoc, String, OpCounts), MergeError> {
+    let base = parse_spec(base_src);
+    let delta = parse_delta(delta_src);
+    let merged = sync_delta(&base, &delta)?;
     let markdown = emit_spec(&merged);
     Ok((merged, markdown, OpCounts::of(&delta)))
 }

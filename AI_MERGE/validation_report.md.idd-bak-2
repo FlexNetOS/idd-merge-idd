@@ -1,0 +1,11 @@
+# IDD Validation Report
+
+| Severity | File | Finding |
+|---|---|---|
+| warning | `.idd/LOCK.md` | required IDD/GitHub control-plane file is missing |
+| warning | `AI_MERGE/03_env_and_secret_contracts.md` | required IDD/GitHub control-plane file is missing |
+| warning | `AI_MERGE/04_merge_plan.md` | required IDD/GitHub control-plane file is missing |
+| warning | `AI_MERGE/08_agent_queue.md` | required IDD/GitHub control-plane file is missing |
+| warning | `AI_MERGE/10_parity_test_plan.md` | required IDD/GitHub control-plane file is missing |
+| warning | `crates/core/src/env_contract.rs` | secret-like assignment near line 349 |
+| warning | `crates/core/src/validation.rs` | secret-like assignment near line 148 |

@@ -1,1 +1,14 @@
 /target
+# Swap files
+*.swp
+*.swo
+*~
+
+# IDE configs
+.vscode/
+.idea/
+*.iml
+
+# OS artifacts
+.DS_Store
+Thumbs.db

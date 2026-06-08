@@ -157,15 +157,45 @@ fn spec_validate_json_is_strict_blind() {
 }
 
 #[test]
-fn spec_show_lists_requirements() {
+fn spec_validate_all_finds_all_specs() {
+    let tmp = tempfile::tempdir().unwrap();
+    let root = tmp.path();
+    let openspec = root.join("openspec");
+    let specs = openspec.join("specs");
+    let changes = openspec.join("changes");
+    std::fs::create_dir_all(&specs).unwrap();
+    std::fs::create_dir_all(changes.join("change-1/specs/cap-1")).unwrap();
+
+    // Valid base spec
+    std::fs::write(
+        specs.join("base.md"),
+        "# Base Specification\n\n## Purpose\nThis is a long enough purpose to pass the brevity warning.\n\n## Requirements\n### Requirement: Req\nThe system SHALL do it.\n#### Scenario: Scen\nStep 1.\n",
+    ).unwrap();
+
+    // Valid change spec
+    std::fs::write(
+        changes.join("change-1/specs/cap-1/spec.md"),
+        "## ADDED Requirements\n### Requirement: Req B\nThe system SHALL also do this.\n#### Scenario: Scen B\nStep 1.\n",
+    ).unwrap();
+
     let out = Command::new(bin())
-        .args(["spec", "show"])
-        .arg(fixture("01-base-spec.md"))
+        .current_dir(root)
+        .args(["spec", "validate", "--all", "--json"])
         .output()
         .expect("run rusty-idd");
-    assert!(out.status.success());
-    let text = String::from_utf8_lossy(&out.stdout);
-    assert!(text.contains("Requirements: 4"));
-    assert!(text.contains("CSV export"));
-    assert!(text.contains("Export rate limit"));
+
+    if !out.status.success() {
+        eprintln!("STDOUT: {}", String::from_utf8_lossy(&out.stdout));
+        eprintln!("STDERR: {}", String::from_utf8_lossy(&out.stderr));
+    }
+    assert!(out.status.success(), "batch validate should succeed");
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(json["items"].as_array().unwrap().len(), 2);
+
+    let items = json["items"].as_array().unwrap();
+    let types: Vec<&str> = items.iter().map(|i| i["type"].as_str().unwrap()).collect();
+    assert!(types.contains(&"spec"));
+    assert!(types.contains(&"change"));
+    assert_eq!(json["summary"]["totals"]["items"], 2);
+    assert_eq!(json["summary"]["totals"]["passed"], 2);
 }

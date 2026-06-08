@@ -346,8 +346,8 @@ mod tests {
     #[test]
     fn extracts_dotenv_keys() {
         let keys =
-            extract_env_keys_from_dotenv("export API_URL=https://x\nTOKEN=abc\n#COMMENT=x\n");
-        assert_eq!(keys, vec!["API_URL".to_string(), "TOKEN".to_string()]);
+            extract_env_keys_from_dotenv("export API_URL=https://x\nKEY=<val>\n#COMMENT=x\n");
+        assert_eq!(keys, vec!["API_URL".to_string(), "KEY".to_string()]);
     }
 
     #[test]

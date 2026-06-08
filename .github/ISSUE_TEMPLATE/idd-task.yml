@@ -1,0 +1,42 @@
+name: IDD Agent Task
+description: Small, testable repo-unification task for AI or human execution
+title: "[IDD] "
+labels: ["idd", "agent-task"]
+body:
+  - type: textarea
+    id: intent
+    attributes:
+      label: Intent
+      description: One narrow outcome. Do not paste a mega-merge request here.
+    validations:
+      required: true
+  - type: textarea
+    id: source-of-truth
+    attributes:
+      label: Source of truth
+      value: |
+        Use AGENTS.md and AI_MERGE as the source of truth.
+        Update the relevant AI_MERGE files in the PR.
+    validations:
+      required: true
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Constraints
+      value: |
+        - Preserve existing behavior.
+        - Do not commit secrets.
+        - Do not delete old implementation until parity tests pass.
+        - Keep the PR small enough to review.
+    validations:
+      required: true
+  - type: checkboxes
+    id: done
+    attributes:
+      label: Definition of Done
+      options:
+        - label: Build passes
+        - label: Tests pass
+        - label: Lint/typecheck passes
+        - label: Secret scan passes
+        - label: Rollback path is documented

@@ -1,29 +1,35 @@
-# openspec-tui
+# rusty-idd-tui (formerly `openspec-tui`)
 
 A terminal UI for browsing and implementing [OpenSpec](https://github.com/Fission-AI/OpenSpec) changes. Built with Rust using [ratatui](https://github.com/ratatui/ratatui) and [crossterm](https://github.com/crossterm-rs/crossterm).
+
+This crate is now unified into the **`rusty-idd`** CLI.
 
 ## Quick Start
 
 ### Prerequisites
 
 - [Rust](https://www.rust-lang.org/tools/install) toolchain (edition 2024)
-- [openspec](https://github.com/Fission-AI/OpenSpec) CLI installed and available on `PATH`
+- Unified **`rusty-idd`** CLI installed (or run from source)
 
 ### Using Nix (recommended)
 
 ```sh
 nix develop
-cargo run
+cargo run --bin rusty-idd -- tui
 ```
 
 ### Manual Setup
 
 ```sh
-cargo build
-cargo run
+cargo build --bin rusty-idd
+./target/debug/rusty-idd tui
 ```
 
-Run `openspec-tui` from a directory that contains an `openspec/` folder with changes.
+Launch the TUI from a directory that contains an `openspec/` folder with changes:
+
+```sh
+rusty-idd tui
+```
 
 ## Features
 

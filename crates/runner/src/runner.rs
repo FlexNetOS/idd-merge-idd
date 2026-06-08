@@ -11,10 +11,12 @@ use crate::config::TuiConfig;
 use crate::data;
 
 /// Messages sent from the worker thread to the TUI.
+#[derive(Debug)]
 pub enum ImplUpdate {
     Progress { completed: u32, total: u32 },
     Finished { success: bool },
     Stalled,
+    Error(String),
 }
 
 /// State for a running implementation process.
@@ -141,8 +143,9 @@ pub fn stop_implementation(state: &ImplState) {
     state.cancel_flag.store(true, Ordering::Relaxed);
     if let Ok(mut handle) = state.child_handle.lock()
         && let Some(ref mut child) = *handle
+        && let Err(e) = child.kill()
     {
-        let _ = child.kill();
+        eprintln!("Failed to kill child process {}: {}", child.id(), e);
     }
 }
 
@@ -165,7 +168,16 @@ pub fn start_implementation(change_name: &str, config: &TuiConfig) -> ImplState 
     let child_handle: Arc<Mutex<Option<Child>>> = Arc::new(Mutex::new(None));
 
     // Read initial progress
-    let (completed, total) = data::parse_task_progress(&tasks_path).unwrap_or((0, 0));
+    let (completed, total) = match data::parse_task_progress(&tasks_path) {
+        Ok(res) => res,
+        Err(e) => {
+            let msg = format!("Failed to read task progress: {}", e);
+            if tx.send(ImplUpdate::Error(msg.clone())).is_err() {
+                eprintln!("Intent: {}", msg);
+            }
+            (0, 0) // Fallback for struct initialization, but thread will handle error
+        }
+    };
 
     let worker_cancel = cancel_flag.clone();
     let worker_child = child_handle.clone();
@@ -289,21 +301,46 @@ fn apply_run(
     child_handle: &Arc<Mutex<Option<Child>>>,
     config: &TuiConfig,
 ) {
-    let _ = write_run_header(log_path, change_name);
+    if let Err(e) = write_run_header(log_path, change_name) {
+        let msg = format!(
+            "Failed to write run header to {}: {}",
+            log_path.display(),
+            e
+        );
+        if tx.send(ImplUpdate::Error(msg.clone())).is_err() {
+            eprintln!("Intent: {}", msg);
+        }
+    }
 
     let prompt = format!("/opsx:apply {}", change_name);
 
     let log_file = match OpenOptions::new().create(true).append(true).open(log_path) {
         Ok(f) => f,
-        Err(_) => {
-            let _ = tx.send(ImplUpdate::Finished { success: false });
+        Err(e) => {
+            let msg = format!("Failed to open log file {}: {}", log_path.display(), e);
+            if tx.send(ImplUpdate::Error(msg.clone())).is_err() {
+                eprintln!("Intent: {}", msg);
+            }
+            if tx.send(ImplUpdate::Finished { success: false }).is_err() {
+                eprintln!("Intent: Finished {{ success: false }}");
+            }
             return;
         }
     };
     let stderr_log = match log_file.try_clone() {
         Ok(f) => f,
-        Err(_) => {
-            let _ = tx.send(ImplUpdate::Finished { success: false });
+        Err(e) => {
+            let msg = format!(
+                "Failed to clone log file handle for {}: {}",
+                log_path.display(),
+                e
+            );
+            if tx.send(ImplUpdate::Error(msg.clone())).is_err() {
+                eprintln!("Intent: {}", msg);
+            }
+            if tx.send(ImplUpdate::Finished { success: false }).is_err() {
+                eprintln!("Intent: Finished {{ success: false }}");
+            }
             return;
         }
     };
@@ -315,21 +352,33 @@ fn apply_run(
             .stderr(Stdio::from(stderr_log))
             .spawn(),
         None => {
-            let _ = tx.send(ImplUpdate::Finished { success: false });
+            let msg = format!("Failed to build command for prompt: {}", prompt);
+            if tx.send(ImplUpdate::Error(msg.clone())).is_err() {
+                eprintln!("Intent: {}", msg);
+            }
+            if tx.send(ImplUpdate::Finished { success: false }).is_err() {
+                eprintln!("Intent: Finished {{ success: false }}");
+            }
             return;
         }
     };
 
     let child = match child_result {
         Ok(c) => c,
-        Err(_) => {
-            let _ = tx.send(ImplUpdate::Finished { success: false });
+        Err(e) => {
+            let msg = format!("Failed to spawn process: {}", e);
+            if tx.send(ImplUpdate::Error(msg.clone())).is_err() {
+                eprintln!("Intent: {}", msg);
+            }
+            if tx.send(ImplUpdate::Finished { success: false }).is_err() {
+                eprintln!("Intent: Finished {{ success: false }}");
+            }
             return;
         }
     };
 
     {
-        let mut handle = child_handle.lock().unwrap();
+        let mut handle = child_handle.lock().unwrap_or_else(|e| e.into_inner());
         *handle = Some(child);
     }
 
@@ -339,7 +388,7 @@ fn apply_run(
         }
 
         let try_result = {
-            let mut handle = child_handle.lock().unwrap();
+            let mut handle = child_handle.lock().unwrap_or_else(|e| e.into_inner());
             if let Some(ref mut c) = *handle {
                 c.try_wait()
             } else {
@@ -357,7 +406,7 @@ fn apply_run(
     };
 
     {
-        let mut handle = child_handle.lock().unwrap();
+        let mut handle = child_handle.lock().unwrap_or_else(|e| e.into_inner());
         *handle = None;
     }
 
@@ -365,7 +414,12 @@ fn apply_run(
         return;
     }
 
-    let _ = tx.send(ImplUpdate::Finished { success: exited_ok });
+    if tx
+        .send(ImplUpdate::Finished { success: exited_ok })
+        .is_err()
+    {
+        eprintln!("Intent: Finished {{ success: {} }}", exited_ok);
+    }
 }
 
 /// Maximum consecutive runs with no task progress before aborting.
@@ -381,11 +435,29 @@ fn implementation_loop(
     config: &TuiConfig,
 ) {
     // Write run header before starting the task loop
-    let _ = write_run_header(log_path, change_name);
+    if let Err(e) = write_run_header(log_path, change_name) {
+        let msg = format!(
+            "Failed to write run header to {}: {}",
+            log_path.display(),
+            e
+        );
+        if tx.send(ImplUpdate::Error(msg.clone())).is_err() {
+            eprintln!("Intent: {}", msg);
+        }
+    }
 
     // Stall detection: track consecutive runs without progress
     let mut stall_count: u32 = 0;
-    let mut prev_completed: u32 = data::parse_task_progress(tasks_path).unwrap_or((0, 0)).0;
+    let mut prev_completed: u32 = match data::parse_task_progress(tasks_path) {
+        Ok((c, _)) => c,
+        Err(e) => {
+            let msg = format!("Failed to read task progress: {}", e);
+            if tx.send(ImplUpdate::Error(msg.clone())).is_err() {
+                eprintln!("Intent: {}", msg);
+            }
+            0
+        }
+    };
 
     // Track loop exit reason
     let mut tasks_complete = false;
@@ -398,7 +470,16 @@ fn implementation_loop(
         }
 
         // Check if there are unchecked tasks remaining
-        let (completed, total) = data::parse_task_progress(tasks_path).unwrap_or((0, 0));
+        let (completed, total) = match data::parse_task_progress(tasks_path) {
+            Ok(res) => res,
+            Err(e) => {
+                let msg = format!("Failed to read task progress: {}", e);
+                if tx.send(ImplUpdate::Error(msg.clone())).is_err() {
+                    eprintln!("Intent: {}", msg);
+                }
+                break;
+            }
+        };
         if completed >= total || total == 0 {
             tasks_complete = true;
             break;
@@ -407,17 +488,51 @@ fn implementation_loop(
         // Open log file for appending
         let log_file = match OpenOptions::new().create(true).append(true).open(log_path) {
             Ok(f) => f,
-            Err(_) => break,
+            Err(e) => {
+                let msg = format!("Failed to open log file {}: {}", log_path.display(), e);
+                if tx.send(ImplUpdate::Error(msg.clone())).is_err() {
+                    eprintln!("Intent: {}", msg);
+                }
+                break;
+            }
         };
         let stderr_log = match log_file.try_clone() {
             Ok(f) => f,
-            Err(_) => break,
+            Err(e) => {
+                let msg = format!(
+                    "Failed to clone log file handle for {}: {}",
+                    log_path.display(),
+                    e
+                );
+                if tx.send(ImplUpdate::Error(msg.clone())).is_err() {
+                    eprintln!("Intent: {}", msg);
+                }
+                break;
+            }
         };
 
         // Write task header before spawning claude
-        let (_, total) = data::parse_task_progress(tasks_path).unwrap_or((0, 0));
-        if let Some((task_num, task_text)) = data::next_unchecked_task(tasks_path) {
-            let _ = write_task_header(log_path, task_num, total, &task_text);
+        let (_, total) = match data::parse_task_progress(tasks_path) {
+            Ok(res) => res,
+            Err(e) => {
+                let msg = format!("Failed to read task progress: {}", e);
+                if tx.send(ImplUpdate::Error(msg.clone())).is_err() {
+                    eprintln!("Intent: {}", msg);
+                }
+                break;
+            }
+        };
+        if let Some((task_num, task_text)) = data::next_unchecked_task(tasks_path)
+            && let Err(e) = write_task_header(log_path, task_num, total, &task_text)
+        {
+            let msg = format!(
+                "Failed to write task header to {}: {}",
+                log_path.display(),
+                e
+            );
+            if tx.send(ImplUpdate::Error(msg.clone())).is_err() {
+                eprintln!("Intent: {}", msg);
+            }
         }
 
         let prompt = config.render_prompt(change_name);
@@ -429,12 +544,22 @@ fn implementation_loop(
                 .stdout(Stdio::from(log_file))
                 .stderr(Stdio::from(stderr_log))
                 .spawn(),
-            None => break,
+            None => {
+                let msg = format!("Failed to build command for prompt: {}", prompt);
+                if tx.send(ImplUpdate::Error(msg.clone())).is_err() {
+                    eprintln!("Intent: {}", msg);
+                }
+                break;
+            }
         };
 
         let child = match child_result {
             Ok(c) => c,
-            Err(_) => {
+            Err(e) => {
+                let msg = format!("Failed to spawn process for task: {}", e);
+                if tx.send(ImplUpdate::Error(msg.clone())).is_err() {
+                    eprintln!("Intent: {}", msg);
+                }
                 // Spawn failure counts toward stall detection
                 stall_count += 1;
                 if stall_count >= STALL_THRESHOLD {
@@ -447,7 +572,7 @@ fn implementation_loop(
 
         // Store child handle so main thread can kill it
         {
-            let mut handle = child_handle.lock().unwrap();
+            let mut handle = child_handle.lock().unwrap_or_else(|e| e.into_inner());
             *handle = Some(child);
         }
 
@@ -460,7 +585,7 @@ fn implementation_loop(
             }
 
             let try_result = {
-                let mut handle = child_handle.lock().unwrap();
+                let mut handle = child_handle.lock().unwrap_or_else(|e| e.into_inner());
                 if let Some(ref mut c) = *handle {
                     c.try_wait()
                 } else {
@@ -474,13 +599,19 @@ fn implementation_loop(
                     // Process still running, wait briefly before polling again
                     std::thread::sleep(std::time::Duration::from_millis(100));
                 }
-                Err(_) => break false,
+                Err(e) => {
+                    let msg = format!("Error waiting for process: {}", e);
+                    if tx.send(ImplUpdate::Error(msg.clone())).is_err() {
+                        eprintln!("Intent: {}", msg);
+                    }
+                    break false;
+                }
             }
         };
 
         // Clear child handle
         {
-            let mut handle = child_handle.lock().unwrap();
+            let mut handle = child_handle.lock().unwrap_or_else(|e| e.into_inner());
             *handle = None;
         }
 
@@ -490,7 +621,16 @@ fn implementation_loop(
         }
 
         // Re-read progress and check for stall (regardless of exit code)
-        let (completed, total) = data::parse_task_progress(tasks_path).unwrap_or((0, 0));
+        let (completed, total) = match data::parse_task_progress(tasks_path) {
+            Ok(res) => res,
+            Err(e) => {
+                let msg = format!("Failed to read task progress: {}", e);
+                if tx.send(ImplUpdate::Error(msg.clone())).is_err() {
+                    eprintln!("Intent: {}", msg);
+                }
+                break;
+            }
+        };
 
         if completed > prev_completed {
             // Progress was made — reset stall counter
@@ -506,6 +646,7 @@ fn implementation_loop(
         }
 
         if tx.send(ImplUpdate::Progress { completed, total }).is_err() {
+            eprintln!("Failed to send Progress update: {}/{}", completed, total);
             break;
         }
 
@@ -522,7 +663,9 @@ fn implementation_loop(
     }
 
     if stalled {
-        let _ = tx.send(ImplUpdate::Stalled);
+        if tx.send(ImplUpdate::Stalled).is_err() {
+            eprintln!("Intent: Stalled");
+        }
         return;
     }
 
@@ -533,7 +676,7 @@ fn implementation_loop(
         && let Some((binary, args)) = config.build_command(&post_prompt)
     {
         // Open log file for hook output
-        let hook_ok = match OpenOptions::new().create(true).append(true).open(log_path) {
+        let hook_result = match OpenOptions::new().create(true).append(true).open(log_path) {
             Ok(log_file) => {
                 match log_file.try_clone() {
                     Ok(stderr_log) => {
@@ -546,7 +689,8 @@ fn implementation_loop(
                             Ok(child) => {
                                 // Store child handle for cancellation
                                 {
-                                    let mut handle = child_handle.lock().unwrap();
+                                    let mut handle =
+                                        child_handle.lock().unwrap_or_else(|e| e.into_inner());
                                     *handle = Some(child);
                                 }
                                 // Poll for completion
@@ -555,7 +699,8 @@ fn implementation_loop(
                                         break false;
                                     }
                                     let try_result = {
-                                        let mut handle = child_handle.lock().unwrap();
+                                        let mut handle =
+                                            child_handle.lock().unwrap_or_else(|e| e.into_inner());
                                         if let Some(ref mut c) = *handle {
                                             c.try_wait()
                                         } else {
@@ -569,30 +714,47 @@ fn implementation_loop(
                                                 100,
                                             ));
                                         }
-                                        Err(_) => break false,
+                                        Err(e) => {
+                                            let msg =
+                                                format!("Error waiting for hook process: {}", e);
+                                            if tx.send(ImplUpdate::Error(msg.clone())).is_err() {
+                                                eprintln!("Intent: {}", msg);
+                                            }
+                                            break false;
+                                        }
                                     }
                                 };
                                 // Clear child handle
                                 {
-                                    let mut handle = child_handle.lock().unwrap();
+                                    let mut handle =
+                                        child_handle.lock().unwrap_or_else(|e| e.into_inner());
                                     *handle = None;
                                 }
-                                exited_ok
+                                Ok(exited_ok)
                             }
-                            Err(_) => false,
+                            Err(e) => Err(format!("Failed to spawn hook process: {}", e)),
                         }
                     }
-                    Err(_) => false,
+                    Err(e) => Err(format!("Failed to clone log file for hook: {}", e)),
                 }
             }
-            Err(_) => false,
+            Err(e) => Err(format!("Failed to open log file for hook: {}", e)),
         };
-        if !hook_ok {
-            success = false;
+
+        match hook_result {
+            Ok(ok) => success = ok,
+            Err(msg) => {
+                if tx.send(ImplUpdate::Error(msg.clone())).is_err() {
+                    eprintln!("Intent: {}", msg);
+                }
+                success = false;
+            }
         }
     }
 
-    let _ = tx.send(ImplUpdate::Finished { success });
+    if tx.send(ImplUpdate::Finished { success }).is_err() {
+        eprintln!("Intent: Finished {{ success: {} }}", success);
+    }
 }
 
 #[cfg(test)]
@@ -624,7 +786,13 @@ mod tests {
             PathBuf::from("openspec/changes/test-change/implementation.log")
         );
         assert!(!state.cancel_flag.load(std::sync::atomic::Ordering::Relaxed));
-        assert!(state.child_handle.lock().unwrap().is_none());
+        assert!(
+            state
+                .child_handle
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .is_none()
+        );
 
         // Verify channel works
         tx.send(ImplUpdate::Progress {
@@ -638,8 +806,8 @@ mod tests {
                 assert_eq!(completed, 3);
                 assert_eq!(total, 5);
             }
-            ImplUpdate::Finished { .. } | ImplUpdate::Stalled => {
-                panic!("Expected Progress, got Finished/Stalled")
+            _ => {
+                panic!("Expected Progress, got {:?}", msg)
             }
         }
     }
@@ -723,7 +891,7 @@ mod tests {
             .spawn()
             .expect("failed to spawn sleep process");
         let child_id = child.id();
-        *child_handle.lock().unwrap() = Some(child);
+        *child_handle.lock().unwrap_or_else(|e| e.into_inner()) = Some(child);
 
         let state = ImplState {
             change_name: "test-change".to_string(),
@@ -741,7 +909,7 @@ mod tests {
         assert!(cancel_flag.load(Ordering::Relaxed));
 
         // Child process should have been killed - wait for it to confirm
-        if let Some(ref mut child) = *child_handle.lock().unwrap() {
+        if let Some(ref mut child) = *child_handle.lock().unwrap_or_else(|e| e.into_inner()) {
             let status = child.wait().expect("failed to wait on child");
             assert!(!status.success(), "child should have been killed");
         }
@@ -780,14 +948,43 @@ mod tests {
         let handle_clone = child_handle.clone();
 
         // Verify both references see the same state
-        assert!(handle_clone.lock().unwrap().is_none());
-        assert!(child_handle.lock().unwrap().is_none());
+        assert!(
+            handle_clone
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .is_none()
+        );
+        assert!(
+            child_handle
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn test_poisoned_mutex_recovery() {
+        let mutex = Arc::new(Mutex::new(Some(1)));
+        let m_clone = mutex.clone();
+
+        let _ = std::thread::spawn(move || {
+            let _guard = m_clone.lock().unwrap();
+            panic!("Poisoning the mutex");
+        })
+        .join();
+
+        assert!(mutex.is_poisoned());
+
+        // This should not panic
+        let guard = mutex.lock().unwrap_or_else(|e| e.into_inner());
+        assert_eq!(*guard, Some(1));
     }
 
     #[test]
     fn test_cancel_flag_stops_loop() {
         // Create a tasks file with uncompleted tasks
-        let dir = std::env::temp_dir().join("openspec-tui-test-cancel-loop");
+        let tmp_dir = tempfile::tempdir().unwrap();
+        let dir = tmp_dir.path();
         let change_dir = dir.join("openspec/changes/test-cancel");
         std::fs::create_dir_all(&change_dir).unwrap();
         let tasks_path = change_dir.join("tasks.md");
@@ -822,14 +1019,13 @@ mod tests {
             !got_progress,
             "Loop should not send Progress when cancelled"
         );
-
-        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
     fn test_loop_finishes_when_all_tasks_complete() {
         // Create a tasks file where all tasks are already done
-        let dir = std::env::temp_dir().join("openspec-tui-test-all-done-loop");
+        let tmp_dir = tempfile::tempdir().unwrap();
+        let dir = tmp_dir.path();
         let change_dir = dir.join("openspec/changes/test-done");
         std::fs::create_dir_all(&change_dir).unwrap();
         let tasks_path = change_dir.join("tasks.md");
@@ -853,14 +1049,13 @@ mod tests {
         // Should receive Finished { success: true } since all tasks are complete
         let msg = rx.recv().unwrap();
         assert!(matches!(msg, ImplUpdate::Finished { success: true }));
-
-        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
     fn test_loop_sends_stalled_on_repeated_spawn_failure() {
         // Create a tasks file with uncompleted tasks so the loop tries to spawn
-        let dir = std::env::temp_dir().join("openspec-tui-test-spawn-fail");
+        let tmp_dir = tempfile::tempdir().unwrap();
+        let dir = tmp_dir.path();
         let change_dir = dir.join("openspec/changes/test-spawn");
         std::fs::create_dir_all(&change_dir).unwrap();
         let tasks_path = change_dir.join("tasks.md");
@@ -887,11 +1082,13 @@ mod tests {
             &config,
         );
 
-        // Should receive Stalled after 3 consecutive spawn failures
+        // Should receive 3 Errors then Stalled after 3 consecutive spawn failures
+        for _ in 0..3 {
+            let msg = rx.recv().unwrap();
+            assert!(matches!(msg, ImplUpdate::Error(_)));
+        }
         let msg = rx.recv().unwrap();
         assert!(matches!(msg, ImplUpdate::Stalled));
-
-        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
@@ -967,8 +1164,8 @@ mod tests {
 
     #[test]
     fn test_write_run_header_creates_file_with_content() {
-        let dir = std::env::temp_dir().join("openspec-tui-test-run-header");
-        std::fs::create_dir_all(&dir).unwrap();
+        let tmp_dir = tempfile::tempdir().unwrap();
+        let dir = tmp_dir.path();
         let log_path = dir.join("implementation.log");
 
         write_run_header(&log_path, "my-change").unwrap();
@@ -984,14 +1181,12 @@ mod tests {
             content.contains("Change: my-change"),
             "Should contain change name"
         );
-
-        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
     fn test_write_run_header_appends_on_second_call() {
-        let dir = std::env::temp_dir().join("openspec-tui-test-run-header-append");
-        std::fs::create_dir_all(&dir).unwrap();
+        let tmp_dir = tempfile::tempdir().unwrap();
+        let dir = tmp_dir.path();
         let log_path = dir.join("implementation.log");
 
         write_run_header(&log_path, "change-a").unwrap();
@@ -1008,13 +1203,12 @@ mod tests {
         );
         let count = content.matches("IMPLEMENTATION RUN STARTED").count();
         assert_eq!(count, 2, "Should have two run headers");
-
-        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
     fn test_implementation_loop_writes_run_header() {
-        let dir = std::env::temp_dir().join("openspec-tui-test-loop-run-header");
+        let tmp_dir = tempfile::tempdir().unwrap();
+        let dir = tmp_dir.path();
         let change_dir = dir.join("openspec/changes/test-header");
         std::fs::create_dir_all(&change_dir).unwrap();
         let tasks_path = change_dir.join("tasks.md");
@@ -1044,14 +1238,12 @@ mod tests {
             content.contains("Change: test-header"),
             "Run header should contain change name"
         );
-
-        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
     fn test_write_task_header_creates_file_with_content() {
-        let dir = std::env::temp_dir().join("openspec-tui-test-task-header");
-        std::fs::create_dir_all(&dir).unwrap();
+        let tmp_dir = tempfile::tempdir().unwrap();
+        let dir = tmp_dir.path();
         let log_path = dir.join("implementation.log");
 
         write_task_header(&log_path, 3, 7, "Implement the widget").unwrap();
@@ -1062,14 +1254,12 @@ mod tests {
             content.contains("Task 3/7: Implement the widget"),
             "Should contain task number and description"
         );
-
-        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
     fn test_write_task_header_appends() {
-        let dir = std::env::temp_dir().join("openspec-tui-test-task-header-append");
-        std::fs::create_dir_all(&dir).unwrap();
+        let tmp_dir = tempfile::tempdir().unwrap();
+        let dir = tmp_dir.path();
         let log_path = dir.join("implementation.log");
 
         write_task_header(&log_path, 1, 3, "First task").unwrap();
@@ -1084,15 +1274,14 @@ mod tests {
             content.contains("Task 2/3: Second task"),
             "Second task header should be present"
         );
-
-        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
     fn test_implementation_loop_writes_task_header() {
         // Create a tasks file with one unchecked task so the loop tries to spawn
         // claude (which will fail in test env), but should still write the task header
-        let dir = std::env::temp_dir().join("openspec-tui-test-loop-task-header");
+        let tmp_dir = tempfile::tempdir().unwrap();
+        let dir = tmp_dir.path();
         let change_dir = dir.join("openspec/changes/test-task-hdr");
         std::fs::create_dir_all(&change_dir).unwrap();
         let tasks_path = change_dir.join("tasks.md");
@@ -1126,15 +1315,14 @@ mod tests {
             content.contains("──"),
             "Task header should contain separator lines"
         );
-
-        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
     fn test_loop_uses_custom_config_command() {
         // Configure a command that will fail (nonexistent binary), verify it
         // attempts to use the configured command rather than hardcoded claude
-        let dir = std::env::temp_dir().join("openspec-tui-test-custom-cmd");
+        let tmp_dir = tempfile::tempdir().unwrap();
+        let dir = tmp_dir.path();
         let change_dir = dir.join("openspec/changes/test-custom");
         std::fs::create_dir_all(&change_dir).unwrap();
         let tasks_path = change_dir.join("tasks.md");
@@ -1161,11 +1349,13 @@ mod tests {
             &config,
         );
 
-        // Should receive Stalled after 3 consecutive spawn failures
+        // Should receive 3 Errors then Stalled after 3 consecutive spawn failures
+        for _ in 0..3 {
+            let msg = rx.recv().unwrap();
+            assert!(matches!(msg, ImplUpdate::Error(_)));
+        }
         let msg = rx.recv().unwrap();
         assert!(matches!(msg, ImplUpdate::Stalled));
-
-        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
@@ -1182,7 +1372,8 @@ mod tests {
 
     #[test]
     fn test_loop_finishes_when_command_empty() {
-        let dir = std::env::temp_dir().join("openspec-tui-test-empty-cmd");
+        let tmp_dir = tempfile::tempdir().unwrap();
+        let dir = tmp_dir.path();
         let change_dir = dir.join("openspec/changes/test-empty");
         std::fs::create_dir_all(&change_dir).unwrap();
         let tasks_path = change_dir.join("tasks.md");
@@ -1209,11 +1400,11 @@ mod tests {
             &config,
         );
 
-        // Should receive Finished { success: false } since empty command means failure
+        // Should receive Error then Finished { success: false }
+        let msg = rx.recv().unwrap();
+        assert!(matches!(msg, ImplUpdate::Error(_)));
         let msg = rx.recv().unwrap();
         assert!(matches!(msg, ImplUpdate::Finished { success: false }));
-
-        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     // --- Stall detection tests ---
@@ -1221,7 +1412,8 @@ mod tests {
     #[test]
     fn test_loop_sends_stalled_after_three_no_progress_runs() {
         // Use `true` command which exits 0 but doesn't modify tasks
-        let dir = std::env::temp_dir().join("openspec-tui-test-stall-3-runs");
+        let tmp_dir = tempfile::tempdir().unwrap();
+        let dir = tmp_dir.path();
         let change_dir = dir.join("openspec/changes/test-stall3");
         std::fs::create_dir_all(&change_dir).unwrap();
         let tasks_path = change_dir.join("tasks.md");
@@ -1271,14 +1463,13 @@ mod tests {
             }
         ));
         assert!(matches!(messages[2], ImplUpdate::Stalled));
-
-        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
     fn test_stall_counter_resets_on_progress() {
         // Script marks a task on the 2nd invocation (via counter file)
-        let dir = std::env::temp_dir().join("openspec-tui-test-stall-reset");
+        let tmp_dir = tempfile::tempdir().unwrap();
+        let dir = tmp_dir.path();
         let change_dir = dir.join("openspec/changes/test-stall-reset");
         std::fs::create_dir_all(&change_dir).unwrap();
         let tasks_path = change_dir.join("tasks.md");
@@ -1349,14 +1540,13 @@ mod tests {
 
         // Last message should be Stalled
         assert!(matches!(messages.last().unwrap(), ImplUpdate::Stalled));
-
-        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
     fn test_loop_continues_past_failed_runs_with_eventual_progress() {
         // Script marks the task on the 3rd invocation — loop should finish, not stall
-        let dir = std::env::temp_dir().join("openspec-tui-test-stall-continues");
+        let tmp_dir = tempfile::tempdir().unwrap();
+        let dir = tmp_dir.path();
         let change_dir = dir.join("openspec/changes/test-stall-cont");
         std::fs::create_dir_all(&change_dir).unwrap();
         let tasks_path = change_dir.join("tasks.md");
@@ -1422,8 +1612,6 @@ mod tests {
             ImplUpdate::Finished { success: true }
         ));
         assert!(!messages.iter().any(|m| matches!(m, ImplUpdate::Stalled)));
-
-        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     // --- BatchImplState tests ---
@@ -1609,7 +1797,7 @@ mod tests {
             match msg {
                 ImplUpdate::Progress { .. } => got_progress = true,
                 ImplUpdate::Stalled => got_stalled = true,
-                ImplUpdate::Finished { .. } => {}
+                ImplUpdate::Finished { .. } | ImplUpdate::Error(_) => {}
             }
         }
         assert!(!got_progress, "Apply mode should not send Progress");
@@ -1618,8 +1806,8 @@ mod tests {
 
     #[test]
     fn test_apply_run_sends_only_finished() {
-        let dir = std::env::temp_dir().join("openspec-tui-test-apply-finished");
-        std::fs::create_dir_all(&dir).unwrap();
+        let tmp_dir = tempfile::tempdir().unwrap();
+        let dir = tmp_dir.path();
         let log_path = dir.join("implementation.log");
 
         let config = TuiConfig {
@@ -1656,14 +1844,12 @@ mod tests {
             messages[0],
             ImplUpdate::Finished { success: true }
         ));
-
-        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
     fn test_apply_run_no_progress_or_stalled() {
-        let dir = std::env::temp_dir().join("openspec-tui-test-apply-no-progress");
-        std::fs::create_dir_all(&dir).unwrap();
+        let tmp_dir = tempfile::tempdir().unwrap();
+        let dir = tmp_dir.path();
         let log_path = dir.join("implementation.log");
 
         // Use a command that fails
@@ -1702,14 +1888,12 @@ mod tests {
                 .any(|m| matches!(m, ImplUpdate::Progress { .. }))
         );
         assert!(!messages.iter().any(|m| matches!(m, ImplUpdate::Stalled)));
-
-        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
     fn test_apply_run_writes_run_header() {
-        let dir = std::env::temp_dir().join("openspec-tui-test-apply-header");
-        std::fs::create_dir_all(&dir).unwrap();
+        let tmp_dir = tempfile::tempdir().unwrap();
+        let dir = tmp_dir.path();
         let log_path = dir.join("implementation.log");
 
         let config = TuiConfig {
@@ -1733,14 +1917,12 @@ mod tests {
         let content = std::fs::read_to_string(&log_path).unwrap();
         assert!(content.contains("IMPLEMENTATION RUN STARTED"));
         assert!(content.contains("Change: test-apply-hdr"));
-
-        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
     fn test_apply_run_cancel_sends_nothing() {
-        let dir = std::env::temp_dir().join("openspec-tui-test-apply-cancel");
-        std::fs::create_dir_all(&dir).unwrap();
+        let tmp_dir = tempfile::tempdir().unwrap();
+        let dir = tmp_dir.path();
         let log_path = dir.join("implementation.log");
 
         let config = TuiConfig {
@@ -1770,14 +1952,12 @@ mod tests {
             messages.is_empty(),
             "Cancelled apply should send no messages"
         );
-
-        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
     fn test_apply_run_empty_command_sends_finished_false() {
-        let dir = std::env::temp_dir().join("openspec-tui-test-apply-empty-cmd");
-        std::fs::create_dir_all(&dir).unwrap();
+        let tmp_dir = tempfile::tempdir().unwrap();
+        let dir = tmp_dir.path();
         let log_path = dir.join("implementation.log");
 
         let config = TuiConfig {
@@ -1799,8 +1979,8 @@ mod tests {
         );
 
         let msg = rx.recv().unwrap();
+        assert!(matches!(msg, ImplUpdate::Error(_)));
+        let msg = rx.recv().unwrap();
         assert!(matches!(msg, ImplUpdate::Finished { success: false }));
-
-        std::fs::remove_dir_all(&dir).unwrap();
     }
 }

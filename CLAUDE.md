@@ -16,21 +16,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 2026-06-04 | Execute epic slices 2–3: `intent-driven-development`→`crates/core`, `openspec-tui-main`→`crates/tui`; relocate+upgrade CI to root `.github/` (workspace-aware, drift gate, fmt/clippy non-blocking); fix tui CWD-race flake; refresh layout docs | repo layout, CI, CLAUDE.md, docs/rusty-idd | Continue the rusty-idd unification; the drift gate's retarget proved out (root lock 234 pkgs, core still zero-dep) |
 | 2026-06-04 | Slice 5: fmt + clippy cleanup across both crates; flip CI fmt/clippy to blocking | both crates, CI | Workspace now fully lint-clean; CI fully enforcing |
 | 2026-06-04 | Slice 4: split `crates/tui` → `crates/runner` (runner/config/data lib) + `crates/tui` (UI); tui re-exports runner modules | crates, Cargo manifests | So the future `crates/cli` can reuse the execution layer without ratatui |
-| 2026-06-04 | Slice 6: build `crates/spec` (the OpenSpec lifecycle engine) — pure model + comrak parse/emit + transactional merge + validate + archive; semantic golden tests vs oracle fixtures | new crate, root Cargo | The crux: Rust-native lifecycle (no Node in the product); byte-exact parity a documented non-goal |
+| 2026-06-04 | Slice 6: build `crates/spec` (the OpenSpec lifecycle engine) — pure model + comrak parse/emit + transactional merge + validate + archive; semantic golden tests vs oracle fixtures | new crate, root Cargo | The crux: Rust-native lifecycle (no Node in the product); byte-exact parity requirement established |
 | 2026-06-04 | Slice 7: build `crates/cli` (`rusty-idd`) unifying core (delegated, byte-identical) + spec (validate/archive/show + FS edge) + headless run + tui; split `crates/tui` into lib+bin so the loop is callable | new crate, tui lib split | The unified superflow binary; old `idd`/`openspec-tui` bins kept until slice 8 |
 | 2026-06-04 | Slice 8 (final): retire the `idd` and `openspec-tui` bins (core/tui are now libs); point docs/run-commands at `rusty-idd`; confirm zero Node in the product | core/tui manifests, docs | rusty-idd unification epic complete — one Rust-native binary |
 | 2026-06-04 | Package/lib rename for coherence: `intent-driven-development`→`rusty-idd-core`, `openspec-runner`→`rusty-idd-runner`, `openspec-tui`→`rusty-idd-tui` (libs `rusty_idd_*`); fix slice-8-stale `--bin idd` refs in skills | all crate manifests + code refs + skills | The whole workspace is now `rusty-idd-*`; directory names unchanged |
 | 2026-06-05 | "Upgrades + fixes" epic via merge-orchestrator (PRs #13–#21): U1 flake.nix retarget, U2 `validate --strict` summary/exit reconcile, U3 runner `serde_yaml`→`serde_norway`, U4 `archive --no-validate/-y` wiring, U5 RENAME+MODIFY op-order pinned to oracle (found+fixed an inverted merge), U6 byte-exact `emit_spec`, U7/U8/U9 deferred spec edges `schema`/`adr`/`scaffold` (`spec status/next/adr/new/scaffold`) | crates/{cli,spec,runner,tui}, docs/rusty-idd, fixtures 06–08 | Post-unification maintenance + completion of the designed-but-deferred lifecycle engine; every slice gate-green |
 | 2026-06-05 | Add autonomous-operation layer: `idd-merge-loop` skill (durable backlog, one slice/cycle, commit-per-cycle, handoff at budget) + `session-relay` skill (HAND OFF/RESUME) + `continuity-steward` agent + `_workspace/.gitignore` (commit only continuity files) + external runner `scripts/ralph-idd.sh` (opt-in `IDD_APPLY=1`) | new agent + 2 skills + runner, CLAUDE.md | Harness upgrade kit: run the merge/port work unattended + resume cold across sessions/restarts with zero loss |
+| 2026-06-05 | Branching model + mandatory auto-merge: loop pushes per cycle and ships every run as a PR `--base develop` with **auto-merge** (no work stranded, no next-run conflict); `develop` = integration branch (protected, required check `rust`), **`main` = protected trunk** reached only via `develop`→`main` promotion PR gated by `rust` + new `.github/workflows/promote-verify.yml` (clean-merge + locked build/test + drift + fmt/clippy + `cargo audit`); default branch → `develop`; repointed `idd-merge-loop`/`session-relay`/`ralph-idd.sh`/CLAUDE.md | skills + runner + new workflow + repo settings/protection | User mandate: "the loop must create a PR with automerge or we lose work / the next loop conflicts" → dev work off `main` onto `develop`, `main` enhanced-verified |
 
 ## Session start protocol (mandatory)
 
-1. **Sync first.** `rtk git fetch --all` then confirm the working branch is level with `origin/main` (`rtk git status -sb`). Do not start work on a stale tree.
+**Branching model:** dev work lands on **`develop`** (the integration branch — protected, required check `rust`, auto-merge on). **`main` is the protected release trunk** and takes `develop` only via a promotion PR gated by `rust` **+** the enhanced `promote-verify` workflow (clean-merge + locked build/test + drift + fmt/clippy + `cargo audit`). **Never push or admin-merge `main` directly.** `develop` is the default branch.
+
+1. **Sync first.** `rtk git fetch --all` then confirm the working branch is level with `origin/develop` (`rtk git status -sb`). Do not start work on a stale tree.
 2. **Work in a fresh git worktree, every session.** This repo is the integration root; never mutate it from an ad-hoc checkout. Create an isolated worktree off the synced base before touching code:
    ```bash
-   rtk git worktree add ../idd-<task-slug> -b <task-slug> origin/main
+   rtk git worktree add ../idd-<task-slug> -b <task-slug> origin/develop
    ```
-   Use the `EnterWorktree` tool when available; otherwise the command above. One vertical slice per worktree, per `AGENTS.md` rule 4. Remove the worktree when the slice is merged.
+   Use the `EnterWorktree` tool when available; otherwise the command above. One vertical slice per worktree, per `AGENTS.md` rule 4. Open the slice's PR `--base develop` with auto-merge. Remove the worktree when the slice is merged.
 3. Read `AGENTS.md` (operating rules) and, for `idd`/lifecycle work, `crates/core/README.md` and `docs/rusty-idd/` before changing control-plane behavior.
 
 ## Repository shape
@@ -94,7 +97,7 @@ The constraint is scoped to the **zero-dependency core crate** — `crates/core`
 ## Merge/PR discipline (from AGENTS.md)
 
 - Preserve working behavior: **deprecate before deleting**; keep old paths until parity tests pass. Migrations are additive first, destructive cleanup last.
-- One integration branch has merge authority; other branches are research/disposable. Keep PRs to one vertical slice.
+- **`develop` is the integration branch** (auto-merge on green `rust`); other branches are research/disposable. Keep PRs to one vertical slice, `--base develop`. **`main` is the protected release trunk** — reached only via a `develop`→`main` promotion PR gated by `rust` **+** `promote-verify`; never pushed or admin-merged directly.
 - Never commit real secrets. `idd` maps secret *references*, it does not materialize values — use `.env.example` / `.env.schema.example.json` / CI secret backends.
 - Every PR that changes the control plane updates the relevant `AI_MERGE/` record and includes the required evidence (build/test/lint/secret-scan results, migration note, rollback path, manifest update or justification).
 - If two agents conflict, stop and record it in `AI_MERGE/05_conflict_risk_register.md` before continuing.

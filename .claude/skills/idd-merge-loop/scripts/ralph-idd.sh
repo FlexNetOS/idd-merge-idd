@@ -32,15 +32,22 @@ fi
 read -r -d '' PROMPT <<EOF || true
 /idd-merge-loop resume (external Ralph runner, fresh context). Worktree: $WORKTREE.
 1. If _workspace/HANDOFF.md exists, follow the session-relay RESUME entry from it (the authoritative
-   signal): run the verify-on-resume baseline FIRST, reset cycles_this_session=0, then continue at the
-   backlog's current item. Else DISCOVER (rusty-idd scan/plan + slice-sequence.md) and build _workspace/backlog.md.
-2. Run up to $BUDGET cycles: ONE vertical slice each, driving vertical-slice-planning ->
-   rust-native-implementation -> merge-verification -> pr-evidence-bundle. Dry-run -> apply only for
-   destructive steps. VERIFY across the boundary in a FRESH shell (rusty-idd validate [fail-closed],
-   drift-check.sh, rtk cargo fmt/clippy/test --workspace --locked). Commit per cycle. Fail-closed; never
-   weaken a guard; crates/core stays zero-dep.
-3. Then write EXACTLY ONE sentinel under _workspace/ and stop (do NOT ScheduleWakeup):
-   DONE (with evidence) | NEEDS-HUMAN (reason) | else HANDOFF.md (spawn continuity-steward via session-relay).
+   signal): RECONCILE the prior run's PR before choosing a base (merged -> branch off advanced origin/develop;
+   open -> branch off the PR's branch, never off stale develop; dev work NEVER branches off main), run the
+   verify-on-resume baseline FIRST, reset cycles_this_session=0, then continue at the backlog's current item.
+   Else DISCOVER (rusty-idd scan/plan + slice-sequence.md) and build _workspace/backlog.md.
+2. Run up to $BUDGET cycles on ONE run branch (off origin/develop): ONE vertical slice each, driving
+   vertical-slice-planning -> rust-native-implementation -> merge-verification -> pr-evidence-bundle.
+   Dry-run -> apply only for destructive steps. VERIFY across the boundary in a FRESH shell (rusty-idd
+   validate [fail-closed], drift-check.sh, rtk cargo fmt/clippy/test --workspace --locked). Commit AND push
+   per cycle; on the first cycle open a PR --base develop and enable auto-merge (gh pr merge --auto --squash)
+   -- develop is branch-protected (required check 'rust') so this is fail-closed. NEVER push/admin-merge main
+   directly; crates/core stays zero-dep.
+3. END OF RUN — FIRST ensure the run's work is on a PR to develop with auto-merge enabled and the PR# recorded
+   (MANDATORY: never leave unmerged work on a local branch). On backlog-clear, also open a develop->main
+   promotion PR with auto-merge (gated by 'rust'+'promote-verify'). THEN write EXACTLY ONE sentinel under
+   _workspace/ and stop (do NOT ScheduleWakeup): DONE (evidence + PR#s) | NEEDS-HUMAN (reason; incl. a PR
+   whose required check went RED) | else HANDOFF.md (spawn continuity-steward via session-relay; records PR#).
 EOF
 
 cd "$WORKTREE"; i=0

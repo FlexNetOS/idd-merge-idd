@@ -1,4 +1,4 @@
-pub const AGENTS_MD: &str = r#"# AGENTS.md — Intent Driven Development
+pub const AGENTS_MD: &str = r#"# AGENTS.md — rusty-idd (Intent Driven Development)
 
 ## North Star
 
@@ -85,9 +85,9 @@ jobs:
       - name: Test
         run: cargo test --all --locked
       - name: IDD validation
-        run: cargo run --bin idd -- validate --workspace .
+        run: cargo run --bin rusty-idd -- validate --workspace .
       - name: IDD manifest refresh check
-        run: cargo run --bin idd -- manifest --workspace . --out .idd/MANIFEST.tsv
+        run: cargo run --bin rusty-idd -- manifest --workspace . --out .idd/MANIFEST.tsv
 "#;
 
 pub const TASK_TEMPLATE: &str = r#"# IDD Task: {{TITLE}}
@@ -200,7 +200,7 @@ pub const PR_TEMPLATE: &str = r#"## IDD PR Evidence
 - Build:
 - Tests:
 - Lint/typecheck:
-- `idd validate`:
+- `rusty-idd validate`:
 - Secret scan:
 
 ### Rollback path

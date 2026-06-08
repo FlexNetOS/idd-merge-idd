@@ -4,9 +4,16 @@ name: ci
 # Relocated from intent-driven-development/.github/ (GitHub only runs workflows
 # under the repo-root .github/) and upgraded to run across the whole workspace.
 #
-# All gates are blocking: the Rust-native drift gate, build, test, fmt, and
-# clippy (-D warnings). The fmt+clippy cleanup slice formatted both crates and
-# cleared all lints, so these are now enforced.
+# All gates are blocking: the Rust-native drift gate, build, test, fmt,
+# clippy (-D warnings), and a cargo-audit supply-chain gate. The fmt+clippy
+# cleanup slice formatted both crates and cleared all lints, so these are now
+# enforced. The audit gate fails on any NEW advisory (see .cargo/audit.toml).
+#
+# Toolchain is PINNED (not @stable) for reproducibility: the `rust` job runs the
+# full gate on a fixed stable; the `msrv` job proves the declared MSRV floor still
+# builds. Per-crate `rust-version`: core = 1.74 (zero-dep, std-only); all other
+# crates = 1.88 (bound by edition 2024 + `let`-chains stabilized in 1.88, ratatui
+# 0.30 >=1.86, and time 0.3.47 >=1.88). Bump both the pin and the floor together.
 
 on:
   pull_request:
@@ -21,12 +28,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      # Pinned stable (was @stable) so the full gate is reproducible and does not
+      # silently drift when a new stable lands. Bump deliberately.
+      - uses: dtolnay/rust-toolchain@1.96.0
         with:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
       - name: Rust-native drift gate
-        run: bash .claude/skills/merge-verification/scripts/drift-check.sh .
+        run: bash .gemini/skills/merge-verification/scripts/drift-check.sh .
       - name: Build (workspace)
         run: cargo build --workspace --locked
       - name: Test (workspace)
@@ -35,3 +44,31 @@ jobs:
         run: cargo fmt --all -- --check
       - name: Clippy
         run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+      - name: Install cargo-audit
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
+      - name: Security audit (fails on any new advisory)
+        # Fail-closed supply-chain gate. The shared baseline (.cargo/audit.toml) is
+        # auto-loaded and ignores the two accepted unmaintained transitive advisories
+        # (backlog A3). `--deny warnings` turns any *new* unmaintained/unsound/yanked
+        # advisory into a failure too. The `time` DoS vuln (RUSTSEC-2026-0009) was
+        # remediated by backlog A2 (time >=0.3.47), so it no longer needs an ignore —
+        # the gate now enforces vulnerabilities with zero exceptions.
+        run: cargo audit --deny warnings
+
+  # MSRV floor: proves the workspace still builds on its declared minimum supported
+  # Rust version (the per-crate `rust-version` = 1.88, the edition-2024 + let-chains
+  # + time/ratatui floor). If a change raises the real MSRV, this job goes red until
+  # the `rust-version` fields + this pin are bumped together. Build-only (lints/tests
+  # run on the pinned `rust` job above).
+  msrv:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.88.0
+      - uses: Swatinem/rust-cache@v2
+      - name: Build on the MSRV floor (1.88.0, locked)
+        run: cargo build --workspace --locked
+      - name: Compile tests on the MSRV floor (locked)
+        run: cargo test --workspace --locked --no-run

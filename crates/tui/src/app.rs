@@ -114,7 +114,7 @@ impl App {
     pub fn new() -> Result<Self, Box<dyn std::error::Error>> {
         let screen = match data::list_changes() {
             Ok(list) => {
-                let change_deps = data::load_change_dependencies(&list.changes);
+                let change_deps = data::load_change_dependencies(&list.changes).unwrap_or_default();
                 Screen::ChangeList {
                     changes: list.changes,
                     selected: 0,
@@ -161,6 +161,10 @@ impl App {
                         break;
                     }
                     runner::ImplUpdate::Stalled => {
+                        result = Some(false);
+                        break;
+                    }
+                    runner::ImplUpdate::Error(_) => {
                         result = Some(false);
                         break;
                     }
@@ -223,7 +227,7 @@ impl App {
 
         if let Some(next_name) = next {
             let change_dir = self.find_change_dir(&next_name, false);
-            let run_mode = data::read_run_mode(&change_dir);
+            let run_mode = data::read_run_mode(&change_dir).unwrap_or_default();
             self.implementation = Some(match run_mode {
                 RunMode::Normal => runner::start_implementation(&next_name, &self.config),
                 RunMode::Apply => runner::start_apply(&next_name, &self.config),
@@ -248,7 +252,7 @@ impl App {
                 match data::list_changes() {
                     Ok(list) => {
                         *changes = list.changes;
-                        *change_deps = data::load_change_dependencies(changes);
+                        *change_deps = data::load_change_dependencies(changes).unwrap_or_default();
                     }
                     Err(_) => {
                         *changes = Vec::new();
@@ -290,7 +294,8 @@ impl App {
                     match data::list_changes() {
                         Ok(list) => {
                             *changes = list.changes;
-                            *change_deps = data::load_change_dependencies(changes);
+                            *change_deps =
+                                data::load_change_dependencies(changes).unwrap_or_default();
                         }
                         Err(_) => {
                             *changes = Vec::new();
@@ -351,7 +356,7 @@ impl App {
                 run_mode,
                 ..
             } => {
-                let config = data::read_change_config(change_dir);
+                let config = data::read_change_config(change_dir).unwrap_or_default();
                 *dependencies = config.depends_on;
                 *run_mode = config.run_mode;
                 if !dependencies.is_empty() {
@@ -363,7 +368,8 @@ impl App {
             Screen::DependencyGraph { graph_text, .. } => {
                 // Reload changes and deps from scratch
                 if let Ok(list) = data::list_changes() {
-                    let change_deps = data::load_change_dependencies(&list.changes);
+                    let change_deps =
+                        data::load_change_dependencies(&list.changes).unwrap_or_default();
                     *graph_text = data::generate_dependency_graph(&change_deps);
                 }
             }
@@ -389,7 +395,7 @@ impl App {
                 // Reload existing deps to filter them out
                 let cwd = std::env::current_dir().unwrap_or_default();
                 let change_dir = cwd.join("openspec").join("changes").join(&change_name);
-                let current_deps = data::read_dependencies(&change_dir);
+                let current_deps = data::read_dependencies(&change_dir).unwrap_or_default();
                 let available: Vec<String> = match data::list_changes() {
                     Ok(list) => list
                         .changes
@@ -457,7 +463,8 @@ impl App {
                     match data::list_changes() {
                         Ok(list) => {
                             *changes = list.changes;
-                            *change_deps = data::load_change_dependencies(changes);
+                            *change_deps =
+                                data::load_change_dependencies(changes).unwrap_or_default();
                         }
                         Err(_) => {
                             *changes = Vec::new();
@@ -585,7 +592,7 @@ impl App {
                 if item.is_dependency_item {
                     let change_name = change_name.clone();
                     let change_dir = change_dir.clone();
-                    let config = data::read_change_config(&change_dir);
+                    let config = data::read_change_config(&change_dir).unwrap_or_default();
                     let old_screen = std::mem::replace(
                         &mut self.screen,
                         Screen::DependencyView {
@@ -641,7 +648,7 @@ impl App {
                 if !*is_archived && self.implementation.is_none() {
                     let name = change_name.clone();
                     let log_path = change_dir.clone().join("implementation.log");
-                    let run_mode = data::read_run_mode(change_dir);
+                    let run_mode = data::read_run_mode(change_dir).unwrap_or_default();
                     self.implementation = Some(match run_mode {
                         RunMode::Normal => runner::start_implementation(&name, &self.config),
                         RunMode::Apply => runner::start_apply(&name, &self.config),
@@ -801,6 +808,7 @@ impl App {
                         post_implementation_prompt: post_implementation_prompt.clone(),
                         interactive_command: interactive_command.clone(),
                         run_finished_command: run_finished_command.clone(),
+                        retry_on_failure: 1,
                     };
                     let _ = new_config.save_to(&self.config_path);
                     self.config = new_config;
@@ -1094,7 +1102,7 @@ impl App {
                     included.iter().map(|s| s.as_str()).collect();
                 for name in &included {
                     let change_dir = changes_dir.join(name);
-                    let deps = data::read_dependencies(&change_dir);
+                    let deps = data::read_dependencies(&change_dir).unwrap_or_default();
                     // Only include deps that are in the included set
                     let filtered: Vec<String> = deps
                         .into_iter()
@@ -1112,7 +1120,7 @@ impl App {
                             let batch = BatchImplState::new(sorted.clone(), deps_map);
                             self.batch = Some(batch);
                             let change_dir = changes_dir.join(first);
-                            let run_mode = data::read_run_mode(&change_dir);
+                            let run_mode = data::read_run_mode(&change_dir).unwrap_or_default();
                             self.implementation = Some(match run_mode {
                                 RunMode::Normal => {
                                     runner::start_implementation(first, &self.config)
@@ -1170,7 +1178,7 @@ pub fn build_run_all_entries(changes: &[data::ChangeEntry]) -> Vec<RunAllEntry> 
 
     for entry in &mut entries {
         let dir = changes_dir.join(&entry.change_name);
-        let deps = data::read_dependencies(&dir);
+        let deps = data::read_dependencies(&dir).unwrap_or_default();
         for dep in &deps {
             let in_list = change_names.contains(dep);
             let is_archived = archived.contains(dep);
@@ -1211,7 +1219,7 @@ fn recalculate_blocked(entries: &mut [RunAllEntry]) {
         .iter()
         .map(|entry| {
             let dir = changes_dir.join(&entry.change_name);
-            let deps = data::read_dependencies(&dir);
+            let deps = data::read_dependencies(&dir).unwrap_or_default();
             for dep in &deps {
                 let is_included = included.contains(dep);
                 let is_archived = archived.contains(dep);
@@ -1305,7 +1313,9 @@ pub fn build_artifact_menu_items(
 
     // Add Dependencies item for active changes
     if !is_archived {
-        let dep_count = data::read_dependencies(change_dir).len();
+        let dep_count = data::read_dependencies(change_dir)
+            .unwrap_or_default()
+            .len();
         items.push(ArtifactMenuItem {
             label: format!("Dependencies [{}]", dep_count),
             available: true,
@@ -5276,7 +5286,7 @@ mod tests {
         }
 
         // Verify it was persisted
-        let saved = data::read_run_mode(&dir);
+        let saved = data::read_run_mode(&dir).unwrap();
         assert_eq!(saved, RunMode::Apply);
 
         std::fs::remove_dir_all(&dir).unwrap();
@@ -5313,7 +5323,7 @@ mod tests {
         }
 
         // Verify it was persisted
-        let saved = data::read_run_mode(&dir);
+        let saved = data::read_run_mode(&dir).unwrap();
         assert_eq!(saved, RunMode::Normal);
 
         std::fs::remove_dir_all(&dir).unwrap();
@@ -5349,7 +5359,7 @@ mod tests {
         app.handle_dependency_view_input(KeyCode::Char('M'));
 
         // Dependencies should be preserved
-        let config = data::read_change_config(&dir);
+        let config = data::read_change_config(&dir).unwrap();
         assert_eq!(
             config.depends_on,
             vec!["dep-a".to_string(), "dep-b".to_string()]

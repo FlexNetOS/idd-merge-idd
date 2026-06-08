@@ -6,6 +6,9 @@ pub const CONFIG_PATH: &str = "openspec/tui-config.yaml";
 const DEFAULT_COMMAND: &str = "claude --print --dangerously-skip-permissions {prompt}";
 const DEFAULT_INTERACTIVE_COMMAND: &str = "claude";
 
+/// Maximum consecutive retries for a single task before stalling (default).
+const DEFAULT_RETRY_ON_FAILURE: u32 = 1;
+
 const DEFAULT_PROMPT: &str = "Before implementing, read the following files for context:\n\
 1. openspec/config.yaml — project context and conventions\n\
 2. openspec/changes/{name}/proposal.md — change motivation and scope\n\
@@ -29,6 +32,9 @@ pub struct TuiConfig {
     pub interactive_command: String,
     #[serde(default)]
     pub run_finished_command: String,
+    /// Consecutive no-progress retries per task before stalling. Defaults to 1.
+    #[serde(default = "default_retry_on_failure")]
+    pub retry_on_failure: u32,
 }
 
 fn default_command() -> String {
@@ -43,6 +49,10 @@ fn default_interactive_command() -> String {
     DEFAULT_INTERACTIVE_COMMAND.to_string()
 }
 
+fn default_retry_on_failure() -> u32 {
+    DEFAULT_RETRY_ON_FAILURE
+}
+
 impl Default for TuiConfig {
     fn default() -> Self {
         Self {
@@ -51,6 +61,7 @@ impl Default for TuiConfig {
             post_implementation_prompt: String::new(),
             interactive_command: default_interactive_command(),
             run_finished_command: String::new(),
+            retry_on_failure: DEFAULT_RETRY_ON_FAILURE,
         }
     }
 }
@@ -296,6 +307,7 @@ mod tests {
             post_implementation_prompt: "commit {name}".to_string(),
             interactive_command: "claude-i".to_string(),
             run_finished_command: "notify done".to_string(),
+            retry_on_failure: 1,
         };
         let golden = "command: my-tool {prompt}\n\
                       prompt: do {name} stuff\n\

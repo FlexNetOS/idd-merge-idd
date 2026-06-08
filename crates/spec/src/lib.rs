@@ -27,7 +27,10 @@ pub mod validate;
 
 // Convenience re-exports of the most-used items.
 pub use adr::{parse_adr, Adr, AdrSet, AdrStatus};
-pub use model::{apply_delta, Delta, DeltaOp, MergeError, Requirement, Scenario, SpecDoc};
+pub use archive::{archive_specs, merge_one, sync_one, MergedSpec, OpCounts, SpecMerge};
+pub use model::{
+    apply_delta, sync_delta, Delta, DeltaOp, MergeError, Requirement, Scenario, SpecDoc,
+};
 pub use parse::{emit_spec, parse_delta, parse_spec};
 pub use scaffold::{render as scaffold_render, ScaffoldContext, ScaffoldError};
 pub use schema::{load_schema, Artifact, Schema, SchemaError};
