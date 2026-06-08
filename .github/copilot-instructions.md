@@ -7,7 +7,7 @@ Preferred workflow:
 1. Read the task file completely.
 2. Inspect the repo inventory and env/secrets contract.
 3. Make the smallest behavior-preserving change.
-4. Run relevant tests and `idd validate` when available.
+4. Run relevant tests and `rusty-idd validate` when available.
 5. Update the affected `/AI_MERGE` documents.
 6. Never commit secret values.
 

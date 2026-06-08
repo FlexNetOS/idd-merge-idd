@@ -307,6 +307,7 @@ mod tests {
             post_implementation_prompt: "commit {name}".to_string(),
             interactive_command: "claude-i".to_string(),
             run_finished_command: "notify done".to_string(),
+            retry_on_failure: 1,
         };
         let golden = "command: my-tool {prompt}\n\
                       prompt: do {name} stuff\n\

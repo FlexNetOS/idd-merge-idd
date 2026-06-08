@@ -1,4 +1,4 @@
-name: idd-ci
+name: rusty-idd-ci
 
 on:
   pull_request:

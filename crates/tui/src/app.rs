@@ -808,6 +808,7 @@ impl App {
                         post_implementation_prompt: post_implementation_prompt.clone(),
                         interactive_command: interactive_command.clone(),
                         run_finished_command: run_finished_command.clone(),
+                        retry_on_failure: 1,
                     };
                     let _ = new_config.save_to(&self.config_path);
                     self.config = new_config;
