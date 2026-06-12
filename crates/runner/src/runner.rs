@@ -446,8 +446,12 @@ fn implementation_loop(
         }
     }
 
-    // Stall detection: track consecutive runs without progress
+    // Stall detection: track consecutive runs without progress.
+    // `stall_count` is the global absolute upper bound (STALL_THRESHOLD).
+    // `task_failures` is the per-task retry counter bounded by
+    // `config.retry_on_failure`; whichever limit is hit first stalls the loop.
     let mut stall_count: u32 = 0;
+    let mut task_failures: u32 = 0;
     let mut prev_completed: u32 = match data::parse_task_progress(tasks_path) {
         Ok((c, _)) => c,
         Err(e) => {
@@ -633,11 +637,22 @@ fn implementation_loop(
         };
 
         if completed > prev_completed {
-            // Progress was made — reset stall counter
+            // Progress was made — reset both the global and per-task counters
             stall_count = 0;
+            task_failures = 0;
             prev_completed = completed;
         } else {
-            // No progress — increment stall counter
+            // No progress — first bump the per-task retry counter. When it
+            // exceeds the configured per-task limit, stall (default 1 means
+            // the task is re-issued once, then stalls on the second
+            // no-progress run — see SCEN-3.1).
+            task_failures += 1;
+            if task_failures > config.retry_on_failure {
+                stalled = true;
+                break;
+            }
+            // STALL_THRESHOLD remains an absolute upper bound regardless of
+            // how high `retry_on_failure` is set (REQ-4).
             stall_count += 1;
             if stall_count >= STALL_THRESHOLD {
                 stalled = true;
@@ -1423,6 +1438,9 @@ mod tests {
         let config = TuiConfig {
             command: "true {prompt}".to_string(),
             prompt: "test {name}".to_string(),
+            // Raise the per-task retry limit above STALL_THRESHOLD so the
+            // global stall bound (3) is the binding constraint here (REQ-4).
+            retry_on_failure: 5,
             ..Default::default()
         };
 
@@ -1495,6 +1513,9 @@ mod tests {
         let config = TuiConfig {
             command: format!("bash {} {{prompt}}", script_path.display()),
             prompt: tasks_path.to_str().unwrap().to_string(),
+            // Keep STALL_THRESHOLD the binding constraint so this test still
+            // exercises the global stall counter and its reset-on-progress.
+            retry_on_failure: 5,
             ..Default::default()
         };
 
@@ -1572,6 +1593,9 @@ mod tests {
         let config = TuiConfig {
             command: format!("bash {} {{prompt}}", script_path.display()),
             prompt: tasks_path.to_str().unwrap().to_string(),
+            // The task only progresses on the 3rd run; allow enough per-task
+            // retries that the loop survives the first two no-progress runs.
+            retry_on_failure: 5,
             ..Default::default()
         };
 
