@@ -1,0 +1,10 @@
+{
+  "schema": "handoff.context_capsule.v1",
+  "project_name": "rusty-idd",
+  "role": "Cargo workspace producing the single `rusty-idd` binary (crates/cli): an intent-driven-development merge control plane (crates/core scan/plan/manifest/validate), a Rust port of the Node OpenSpec lifecycle engine (crates/spec parse/validate/archive), and an agent task runner with ratatui TUI (crates/runner + crates/tui). It is itself the product of an in-house AI merge of three source tools, driven by the repo's own merge-orchestrator/idd-merge-loop harness.",
+  "plane": "continuity-orchestration",
+  "tier": "B",
+  "northstar": "NO HUMAN IN THE LOOP: witnessed work-orders, leases, fail-closed native auto-merge; Git > ledger > cards.",
+  "next_command": "W6: fix CLAUDE.md ralph-idd.sh reference; seam ADR (consume/produce handoff.task.v1)",
+  "source": "ARCHITECTURE-TRUTH.md census 2026-06-12"
+}
