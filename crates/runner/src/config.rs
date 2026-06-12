@@ -313,7 +313,8 @@ mod tests {
                       prompt: do {name} stuff\n\
                       post_implementation_prompt: commit {name}\n\
                       interactive_command: claude-i\n\
-                      run_finished_command: notify done\n";
+                      run_finished_command: notify done\n\
+                      retry_on_failure: 1\n";
         assert_eq!(serde_norway::to_string(&config).unwrap(), golden);
         // And it round-trips back to the same struct.
         let back: TuiConfig = serde_norway::from_str(golden).unwrap();
@@ -325,6 +326,56 @@ mod tests {
         );
         assert_eq!(back.interactive_command, config.interactive_command);
         assert_eq!(back.run_finished_command, config.run_finished_command);
+        assert_eq!(back.retry_on_failure, config.retry_on_failure);
+    }
+
+    /// Config files written before `retry_on_failure` existed (no such line)
+    /// must keep loading: the field is additive, with a serde default. This is
+    /// the backward-compatibility half of the golden-format lock above.
+    #[test]
+    fn test_legacy_yaml_without_retry_on_failure_still_loads() {
+        let legacy = "command: my-tool {prompt}\n\
+                      prompt: do {name} stuff\n\
+                      post_implementation_prompt: commit {name}\n\
+                      interactive_command: claude-i\n\
+                      run_finished_command: notify done\n";
+        let config: TuiConfig = serde_norway::from_str(legacy).unwrap();
+        assert_eq!(config.retry_on_failure, default_retry_on_failure());
+    }
+
+    /// SCEN-1.1: `TuiConfig::default()` yields `retry_on_failure == 1`.
+    #[test]
+    fn test_default_retry_on_failure_is_one() {
+        let config = TuiConfig::default();
+        assert_eq!(config.retry_on_failure, 1);
+    }
+
+    /// SCEN-1.2: YAML that omits `retry_on_failure` deserializes to the default 1.
+    #[test]
+    fn test_deserialize_without_retry_on_failure_defaults_to_one() {
+        let yaml = "command: my-tool {prompt}\nprompt: do stuff\n";
+        let config: TuiConfig = serde_norway::from_str(yaml).unwrap();
+        assert_eq!(config.retry_on_failure, 1);
+    }
+
+    /// SCEN-1.3: YAML with an explicit `retry_on_failure: 5` deserializes to 5.
+    #[test]
+    fn test_deserialize_with_explicit_retry_on_failure() {
+        let yaml = "retry_on_failure: 5\n";
+        let config: TuiConfig = serde_norway::from_str(yaml).unwrap();
+        assert_eq!(config.retry_on_failure, 5);
+    }
+
+    /// REQ-2: serializing then deserializing preserves a custom `retry_on_failure`.
+    #[test]
+    fn test_serialize_roundtrip_with_retry_on_failure() {
+        let config = TuiConfig {
+            retry_on_failure: 7,
+            ..Default::default()
+        };
+        let yaml = serde_norway::to_string(&config).unwrap();
+        let deserialized: TuiConfig = serde_norway::from_str(&yaml).unwrap();
+        assert_eq!(deserialized.retry_on_failure, 7);
     }
 
     mod placeholder_tests {
