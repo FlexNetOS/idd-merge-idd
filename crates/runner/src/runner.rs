@@ -1484,6 +1484,76 @@ mod tests {
     }
 
     #[test]
+    fn test_loop_stalls_after_retry_on_failure_plus_one_runs() {
+        // REQ-3 / SCEN-3.2: with `retry_on_failure = N`, a task that never makes
+        // progress is re-attempted up to N+1 times total before stalling. The
+        // run that exceeds the per-task limit breaks before sending Progress, so
+        // the observable sequence is exactly N `Progress` messages then `Stalled`.
+        // Use `true` (exits 0, never marks tasks) so every run is a no-progress run.
+        const RETRY: u32 = 2;
+
+        let tmp_dir = tempfile::tempdir().unwrap();
+        let dir = tmp_dir.path();
+        let change_dir = dir.join("openspec/changes/test-retry");
+        std::fs::create_dir_all(&change_dir).unwrap();
+        let tasks_path = change_dir.join("tasks.md");
+        std::fs::write(&tasks_path, "- [ ] Task one\n").unwrap();
+        let log_path = dir.join("test.log");
+
+        let config = TuiConfig {
+            command: "true {prompt}".to_string(),
+            prompt: "test {name}".to_string(),
+            // Keep the per-task limit below STALL_THRESHOLD (3) so the per-task
+            // retry counter — not the global stall bound — is what stalls here.
+            retry_on_failure: RETRY,
+            ..Default::default()
+        };
+
+        let (tx, rx) = mpsc::channel();
+        let cancel_flag = Arc::new(AtomicBool::new(false));
+        let child_handle: Arc<Mutex<Option<Child>>> = Arc::new(Mutex::new(None));
+
+        implementation_loop(
+            "test-retry",
+            &tasks_path,
+            &log_path,
+            &tx,
+            &cancel_flag,
+            &child_handle,
+            &config,
+        );
+
+        let mut messages = vec![];
+        while let Ok(msg) = rx.try_recv() {
+            messages.push(msg);
+        }
+
+        // RETRY no-progress runs each emit Progress, then the (RETRY+1)th run
+        // exceeds the limit and emits Stalled — RETRY + 1 messages total.
+        assert_eq!(
+            messages.len() as u32,
+            RETRY + 1,
+            "Expected {} messages (RETRY Progress + 1 Stalled), got: {}",
+            RETRY + 1,
+            messages.len()
+        );
+        for msg in &messages[..RETRY as usize] {
+            assert!(
+                matches!(
+                    msg,
+                    ImplUpdate::Progress {
+                        completed: 0,
+                        total: 1
+                    }
+                ),
+                "Expected Progress(0, 1), got {:?}",
+                msg
+            );
+        }
+        assert!(matches!(messages.last().unwrap(), ImplUpdate::Stalled));
+    }
+
+    #[test]
     fn test_stall_counter_resets_on_progress() {
         // Script marks a task on the 2nd invocation (via counter file)
         let tmp_dir = tempfile::tempdir().unwrap();
